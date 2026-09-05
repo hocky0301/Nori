@@ -9,8 +9,12 @@ enum PanelPlacement {
 
     /// 75 % of the screen's visible height, clamped. Computed once per open; never changes while open.
     static func height(for screen: NSScreen?) -> CGFloat {
-        let visible = screen?.visibleFrame.height ?? 900
-        return min(max(floor(visible * 0.75), minHeight), maxHeight)
+        height(forVisibleHeight: screen?.visibleFrame.height ?? 900)
+    }
+
+    /// Pure form of `height(for:)` (testable without a screen).
+    static func height(forVisibleHeight visible: CGFloat) -> CGFloat {
+        min(max(floor(visible * 0.75), minHeight), maxHeight)
     }
 
     static func screenUnderMouse() -> NSScreen? {
@@ -48,7 +52,12 @@ enum PanelPlacement {
     /// Keep the whole panel on one screen.
     static func constrain(_ origin: NSPoint, size: NSSize, to screen: NSScreen?) -> NSPoint {
         guard let frame = screen?.visibleFrame else { return origin }
-        return NSPoint(
+        return constrain(origin, size: size, in: frame)
+    }
+
+    /// Pure form of `constrain(_:size:to:)` for a known visible frame (testable without a screen).
+    static func constrain(_ origin: NSPoint, size: NSSize, in frame: NSRect) -> NSPoint {
+        NSPoint(
             x: min(max(origin.x, frame.minX), max(frame.minX, frame.maxX - size.width)),
             y: min(max(origin.y, frame.minY), max(frame.minY, frame.maxY - size.height))
         )
