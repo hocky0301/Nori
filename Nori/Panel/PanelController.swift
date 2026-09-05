@@ -26,7 +26,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         hosting.sizingOptions = []
         panel.contentView = hosting
         panel.delegate = self
-        panel.onResignKey = { [weak self] in self?.close() }
+        panel.onResignKey = { [weak self] in self?.close(reason: "resignKey") }
     }
 
     func toggle(position: NoriSettings.PanelPosition? = nil) {
@@ -48,11 +48,13 @@ final class PanelController: NSObject, NSWindowDelegate {
         panel.orderFrontRegardless()
         panel.makeKey()
         isVisible = true
+        logger.notice("opened panel at \(origin.x),\(origin.y) key=\(self.panel.isKeyWindow)")
         statusButton?.isHighlighted = true
     }
 
-    func close() {
+    func close(reason: String = "request") {
         guard isVisible else { return }
+        logger.notice("closing panel (\(reason, privacy: .public)); keyWindow=\(String(describing: NSApp.keyWindow), privacy: .public) active=\(NSApp.isActive)")
         isVisible = false
         removeMonitor()
         settings.lastPanelOrigin = panel.frame.origin

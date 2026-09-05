@@ -1,4 +1,5 @@
 import AppKit
+import OSLog
 import SwiftUI
 
 /// A borderless, non-activating panel: it becomes key so the search field gets keystrokes,
@@ -34,6 +35,8 @@ final class FloatingPanel: NSPanel {
 
     override func resignKey() {
         super.resignKey()
+        Logger(subsystem: "io.github.hocky0301.Nori", category: "panel")
+            .notice("resignKey; new key=\(String(describing: NSApp.keyWindow), privacy: .public) active=\(NSApp.isActive) front=\(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "?", privacy: .public) event=\(String(describing: NSApp.currentEvent?.type.rawValue), privacy: .public)")
         onResignKey?()
     }
 

@@ -1,6 +1,6 @@
 import AppKit
 
-@main
+
 final class NoriApp: NSObject, NSApplicationDelegate {
     private var coordinator: AppCoordinator?
 
