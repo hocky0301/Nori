@@ -22,6 +22,9 @@ final class AppCoordinator {
     private var onboardingWindow: OnboardingWindowController?
     private var pauseTimer: Timer?
     private var expiryTimer: Timer?
+    /// Set while the onboarding window listens for the hotkey itself (step 1), so the chord
+    /// shows "That's it" instead of toggling the panel underneath the welcome window.
+    var suppressesHotkeyToggle = false
     #if DEBUG
     private var debugBridge: DebugBridge?
     #endif
@@ -58,7 +61,8 @@ final class AppCoordinator {
         panelController.statusButton = statusItem.button
 
         KeyboardShortcuts.onKeyDown(for: .togglePanel) { [weak self] in
-            self?.togglePanel()
+            guard let self, !suppressesHotkeyToggle else { return }
+            togglePanel()
         }
 
         let expiry = Timer(timeInterval: 3600, repeats: true) { [weak self] _ in
@@ -127,6 +131,15 @@ final class AppCoordinator {
             onboardingWindow = OnboardingWindowController(coordinator: self)
         }
         onboardingWindow?.show()
+    }
+
+    /// Onboarding opened at a given step (1…3); used by the debug bridge for screenshots.
+    func showOnboarding(step: Int) {
+        panelController.close(reason: "onboarding")
+        if onboardingWindow == nil {
+            onboardingWindow = OnboardingWindowController(coordinator: self)
+        }
+        onboardingWindow?.show(step: step)
     }
 
     func willTerminate() {
