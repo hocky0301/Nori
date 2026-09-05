@@ -37,7 +37,7 @@ struct HintBarModelTests {
     }
 
     @Test func restingState() {
-        #expect(chips([]) == ["↩ Paste", "⇧↩ Plain", "⌥↩ Keep open", "⌘↩ Copy", "Space Preview", "⌘P Pin", "⌘⌫ Delete"])
+        #expect(chips([]) == ["↩ Paste", "⇧↩ Plain", "Space Preview", "⌘P Pin", "⌘⌫ Delete"])
     }
 
     @Test func commandHeldShowsOpenOnlyForOpenableKinds() {

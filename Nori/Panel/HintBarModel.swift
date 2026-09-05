@@ -40,9 +40,8 @@ enum HintBarModel {
             } else {
                 chips.append(Chip(key: "↩", verb: String(localized: "Copy · Enable pasting →"), isWarning: true))
             }
+            // Resting state stays short on purpose; ⌥ and ⌘ variants appear while those keys are held.
             chips.append(Chip(key: "⇧↩", verb: String(localized: "Plain")))
-            chips.append(Chip(key: "⌥↩", verb: String(localized: "Keep open")))
-            chips.append(Chip(key: "⌘↩", verb: String(localized: "Copy")))
             chips.append(Chip(key: String(localized: "Space"), verb: String(localized: "Preview")))
             chips.append(Chip(key: "⌘P", verb: String(localized: "Pin")))
             chips.append(Chip(key: "⌘⌫", verb: String(localized: "Delete")))
