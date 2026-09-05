@@ -109,6 +109,6 @@ Swift 6 with strict concurrency, SwiftUI + AppKit, SwiftData. The only dependenc
 
 ## Credits
 
-Nori is a from-scratch app, but it would not exist without [Maccy](https://github.com/p0deje/Maccy) by Alexey Rodionov: its source is where the edge cases of macOS clipboard management are documented in code. Nori was designed and built with [Claude Code](https://claude.com/claude-code).
+Nori is a from-scratch app, but it would not exist without [Maccy](https://github.com/p0deje/Maccy) by Alexey Rodionov: its source is where the edge cases of macOS clipboard management are documented in code.
 
 MIT © 2026 Kamil Ijuin

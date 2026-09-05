@@ -2,13 +2,13 @@
 title: "macOS 26 でクリップボード履歴アプリをゼロから作って踏んだ落とし穴 8 つ ── NSPasteboard・非アクティブ化パネル・SwiftData・Swift 6"
 emoji: "🧷"
 type: "tech"
-topics: ["macos", "swift", "swiftui", "swiftdata", "claudecode"]
+topics: ["macos", "swift", "swiftui", "swiftdata"]
 published: false
 ---
 
-Maccy（macOS 定番のクリップボード履歴アプリ、MIT）のソースを全部読んでから、**同じ問題を解く別のアプリ「Nori（糊）」を Swift 6 / SwiftUI / SwiftData でゼロから書きました**。実装はほぼ全部 Claude Code に任せています。
+Maccy（macOS 定番のクリップボード履歴アプリ、MIT）のソースを全部読んでから、**同じ問題を解く別のアプリ「Nori（糊）」を Swift 6 / SwiftUI / SwiftData でゼロから書きました**。
 この記事は「作ってみた」ではなく、その過程で **実際に踏んで、実際に直した落とし穴 8 つ** と、Maccy と違う判断をした 3 箇所の記録です。
-macOS でクリップボード系ツールを書く人、Swift 6 の strict concurrency で AppKit を触る人、AI エージェントに GUI アプリを作らせて検証まで回したい人に向けています。
+macOS でクリップボード系ツールを書く人、Swift 6 の strict concurrency で AppKit を触る人、GUI アプリの動作確認をスクリプトから自動で回したい人に向けています。
 
 - リポジトリ: https://github.com/hocky0301/Nori （MIT）
 - 参考にした本家: https://github.com/p0deje/Maccy
@@ -23,7 +23,6 @@ macOS でクリップボード系ツールを書く人、Swift 6 の strict conc
 | 依存パッケージ | sindresorhus/KeyboardShortcuts 2.4.0 のみ |
 | プロジェクト生成 | xcodegen 2.45.4 |
 | 読んだ本家 | Maccy 2.7.1（Swift 117 ファイル / 9,637 行） |
-| 実装 | Claude Code（Claude Fable 5.1） |
 
 ## 結論から
 
@@ -31,7 +30,7 @@ macOS でクリップボード系ツールを書く人、Swift 6 の strict conc
 2. クリップボードマネージャーの難所は UI ではなく **「フォーカスを奪わずにキーボードを受け取り、閉じた瞬間に元アプリへ ⌘V を送る」** の一点。
 3. Swift 6 の strict concurrency は AppKit 相手だと **「型が Sendable じゃない」系のエラーを 3 種類** 踏む。全部 1 行で直る。
 4. SwiftData は **insert の前にリレーションを触ると落ちる**、**同一プロセスに ModelContainer を 2 つ作ると落ちる**。どちらもメッセージなしの `EXC_BREAKPOINT`。
-5. AI に GUI アプリを検証させるなら、**アプリ側に DEBUG 専用の遠隔操作口を作って、外から `screencapture -l` で撮る** のが一番安定した。
+5. GUI アプリの動作確認を自動化するなら、**アプリ側に DEBUG 専用の遠隔操作口を作って、外から `screencapture -l` で撮る** のが一番安定した。
 
 ## Maccy を読んでわかった「クリップボード履歴アプリの本体」
 
@@ -166,11 +165,11 @@ Finder で 2 ファイルをコピーすると、ペーストボードには `pu
 19:24:21.139 closing panel (resignKey)
 ```
 
-再現条件を詰めると、前面にいた Electron 製アプリ（この時は Claude デスクトップアプリ）が画面更新のたびに自分のウィンドウをキーに戻していました。人間が使う分には「他アプリをクリックしたら閉じる」で正しい挙動なので、Nori も **閉じる契機は resignKey のまま** にし、代わりに「開いた直後の数秒は再びキーを取り直す」ような小細工はしていません。ただし **自動テストでスクリーンショットを撮るときは、撮る直前にもう一度 open を送る** 運用にしました。これは実装の問題ではなく検証手順の問題として解決しています。
+再現条件を詰めると、前面にいた Electron 製アプリが画面更新のたびに自分のウィンドウをキーに戻していました。人間が使う分には「他アプリをクリックしたら閉じる」で正しい挙動なので、Nori も **閉じる契機は resignKey のまま** にし、代わりに「開いた直後の数秒は再びキーを取り直す」ような小細工はしていません。ただし **自動テストでスクリーンショットを撮るときは、撮る直前にもう一度 open を送る** 運用にしました。これは実装の問題ではなく検証手順の問題として解決しています。
 
-### 8. AI エージェントのシェルから直接 `exec` したアプリは WindowServer に繋がらない
+### 8. 非対話のシェルから直接 `exec` したアプリは WindowServer に繋がらない
 
-Claude Code の Bash から `./Nori.app/Contents/MacOS/Nori &` で起動すると、プロセスは生きるのにウィンドウが一切作れません（`CGWindowListCopyWindowInfo` にも出ない）。`open -n Nori.app --args …` で LaunchServices 経由にすると普通に動きます。エージェントが GUI を検証するときに最初に踏む壁です。
+自動化スクリプトから `./Nori.app/Contents/MacOS/Nori &` で起動すると、プロセスは生きるのにウィンドウが一切作れません（`CGWindowListCopyWindowInfo` にも出ない）。`open -n Nori.app --args …` で LaunchServices 経由にすると普通に動きます。GUI の検証を自動化するときに最初に踏む壁です。
 
 ## Maccy と違う判断をした 3 箇所
 
@@ -207,14 +206,14 @@ API キー・トークン・秘密鍵・カード番号（Luhn 検証付き）�
 
 スクリーンショットを 1 枚コピーすると、ペーストボードには TIFF（数十 MB）と PNG（数百 KB）の両方が載ります。Nori は PNG があればそれだけ、TIFF しか無ければ `CGImageSource → CGImageDestination` で PNG に変換して保存します。一覧に出す 224px のサムネイルは `CGImageSourceCreateThumbnailAtIndex` で作って `ClipItem` に直接持たせるので、**一覧のスクロール中にフル画像をデコードすることはありません**。本体の PNG は SwiftData の `.externalStorage` です。
 
-## AI にどうやって GUI を検証させたか
+## GUI の動作確認をどう自動化したか
 
-人間が画面を見ないので、検証手順そのものをアプリに組み込みました。
+毎回手で画面を確認しなくて済むように、検証手順そのものをアプリに組み込みました。
 
 1. **DEBUG ビルド限定の遠隔操作口**: `DistributedNotificationCenter` で `open-center` / `query:swift` / `filter:link` / `ghost` / `clear` などの命令を受ける `DebugBridge`。並列に複数インスタンスを動かすため `--debug-channel=名前` で購読名を分ける。
 2. **in-memory ストア + デモデータ**: `--in-memory --seed-demo` で起動すると本物の履歴に触らず、リンク/コード/色/画像/ファイル/シークレットが揃った状態になる。
 3. **外からスクリーンショット**: `CGWindowListCopyWindowInfo` で自分の PID のウィンドウ番号を引き、`screencapture -x -l <window>` で撮る。Liquid Glass のパネルは半透明なので、アプリ内でビューを描画しても背景がなくて評価できません。
-4. エージェントは撮った PNG を読んで、余白・切れ・コントラストを自分で直す。
+4. 撮った PNG を見て、余白・切れ・コントラストを直す。
 
 ```bash
 scripts/dev-drive.sh launch --seed-demo
@@ -236,6 +235,6 @@ scripts/dev-drive.sh shot panel.png
 - クリップボード履歴アプリの本体は取り込みルールと「フォーカスを奪わない ⌘V」で、UI は薄い。だから UI を作り直すなら Maccy の判断は全部引き継いでよい。
 - SwiftData の `EXC_BREAKPOINT` はメッセージが無い。「insert 前のリレーション」「コンテナ 2 個」の 2 つを先に疑う。
 - Swift 6 の Sendable エラーは `Regex` / `NSEvent` / Carbon のグローバル定数 で出る。直し方は 1 行。
-- AI に GUI を作らせるなら、検証口（遠隔操作 + 外部スクリーンショット）を先に作るとその後が全部楽になる。
+- GUI の検証口（遠隔操作 + 外部スクリーンショット）を先に作ると、その後の UI 作業が全部楽になる。
 
 コードはすべて https://github.com/hocky0301/Nori にあります。Maccy の作者 Alexey Rodionov 氏に感謝を。

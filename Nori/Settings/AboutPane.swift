@@ -51,7 +51,7 @@ struct AboutPane: View {
                     Link("MIT License", destination: Self.licenseURL)
                 }
             } footer: {
-                Text("Built with Claude Code. Nori has no network access; clips never leave this Mac.")
+                Text("Nori has no network access; clips never leave this Mac.")
             }
         }
         .formStyle(.grouped)
