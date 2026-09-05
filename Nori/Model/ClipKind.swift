@@ -29,12 +29,12 @@ enum ClipKind: String, Codable, CaseIterable, Sendable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .text: "Text"
-        case .link: "Link"
-        case .code: "Code"
-        case .color: "Color"
-        case .image: "Image"
-        case .file: "File"
+        case .text: String(localized: "Text")
+        case .link: String(localized: "Link")
+        case .code: String(localized: "Code")
+        case .color: String(localized: "Color")
+        case .image: String(localized: "Image")
+        case .file: String(localized: "File")
         }
     }
 

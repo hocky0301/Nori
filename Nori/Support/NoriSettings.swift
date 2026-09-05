@@ -22,9 +22,9 @@ final class NoriSettings {
         var id: String { rawValue }
         var label: String {
             switch self {
-            case .cursor: "At the mouse pointer"
-            case .center: "Center of the screen"
-            case .statusItem: "Under the menu bar icon"
+            case .cursor: String(localized: "At the mouse pointer")
+            case .center: String(localized: "Center of the screen")
+            case .statusItem: String(localized: "Under the menu bar icon")
             }
         }
     }

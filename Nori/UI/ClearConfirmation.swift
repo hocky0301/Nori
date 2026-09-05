@@ -30,7 +30,7 @@ struct ClearConfirmation: View {
                         .multilineTextAlignment(.center)
                 }
                 HStack(spacing: 8) {
-                    FlatButton(title: "Cancel", key: "Esc", prominent: false) {
+                    FlatButton(title: "Cancel", key: String(localized: "Esc"), prominent: false) {
                         model.isClearConfirmationVisible = false
                     }
                     FlatButton(title: includePinned ? "Clear Including Pinned" : "Clear", key: "↩", prominent: true) {
@@ -60,20 +60,20 @@ struct ClearConfirmation: View {
     }
 
     private var message: String {
-        let clips = count == 1 ? "1 clip" : "\(count) clips"
+        let clips = count == 1 ? String(localized: "1 clip") : String(localized: "\(count) clips")
         if includePinned {
-            let pinned = pinnedCount == 1 ? "1 pinned clip" : "\(pinnedCount) pinned clips"
-            return "\(clips) and \(pinned) will be removed. This can't be undone."
+            let pinned = pinnedCount == 1 ? String(localized: "1 pinned clip") : String(localized: "\(pinnedCount) pinned clips")
+            return String(localized: "\(clips) and \(pinned) will be removed. This can't be undone.")
         }
         return pinnedCount > 0
-            ? "\(clips) will be removed. Pinned clips are kept."
-            : "\(clips) will be removed. This can't be undone."
+            ? String(localized: "\(clips) will be removed. Pinned clips are kept.")
+            : String(localized: "\(clips) will be removed. This can't be undone.")
     }
 }
 
 /// A flat capsule button with its key printed inside; accent when prominent.
 struct FlatButton: View {
-    let title: String
+    let title: LocalizedStringKey
     let key: String
     let prominent: Bool
     let action: () -> Void

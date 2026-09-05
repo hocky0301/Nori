@@ -69,14 +69,14 @@ enum SecretDetector {
 
     static func label(for match: Match) -> String {
         switch match {
-        case .privateKey: "Private key"
-        case .awsAccessKey: "AWS access key"
-        case .gitHubToken, .gitHubFineGrainedToken: "GitHub token"
-        case .openAIKey: "API key"
-        case .slackToken: "Slack token"
-        case .googleAPIKey: "Google API key"
-        case .jwt: "Access token"
-        case .cardNumber: "Card number"
+        case .privateKey: String(localized: "Private key")
+        case .awsAccessKey: String(localized: "AWS access key")
+        case .gitHubToken, .gitHubFineGrainedToken: String(localized: "GitHub token")
+        case .openAIKey: String(localized: "API key")
+        case .slackToken: String(localized: "Slack token")
+        case .googleAPIKey: String(localized: "Google API key")
+        case .jwt: String(localized: "Access token")
+        case .cardNumber: String(localized: "Card number")
         }
     }
 }

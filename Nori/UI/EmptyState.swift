@@ -79,13 +79,13 @@ struct EmptyState: View {
 
     private static func noun(for filter: PanelFilter) -> String {
         switch filter {
-        case .all: "something"
-        case .text: "some text"
-        case .link: "a link"
-        case .code: "some code"
-        case .color: "a color value"
-        case .image: "an image"
-        case .file: "a file"
+        case .all: String(localized: "something")
+        case .text: String(localized: "some text")
+        case .link: String(localized: "a link")
+        case .code: String(localized: "some code")
+        case .color: String(localized: "a color value")
+        case .image: String(localized: "an image")
+        case .file: String(localized: "a file")
         }
     }
 }

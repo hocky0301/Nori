@@ -203,7 +203,7 @@ final class PanelModel {
         }
         actions.perform(clip, action)
         if action.keepOpen, !action.isPaste {
-            showToast("Copied")
+            showToast(String(localized: "Copied"))
         }
     }
 
@@ -220,7 +220,7 @@ final class PanelModel {
         undoRecord = history.delete(id: clip.id)
         recompute(resetSelection: false)
         select(id: nextID)
-        showToast("Deleted · ⌘Z to undo")
+        showToast(String(localized: "Deleted · ⌘Z to undo"))
     }
 
     func undoDelete() {
@@ -260,7 +260,7 @@ final class PanelModel {
         vault.removeAll()
         isClearConfirmationVisible = false
         recompute(resetSelection: true)
-        showToast("Cleared \(removed) clips")
+        showToast(String(localized: "Cleared \(removed) clips"))
     }
 
     func showToast(_ text: String) {
@@ -289,8 +289,9 @@ final class PanelModel {
     /// "Expires in 8m" for sensitive cards.
     static func expiresText(_ date: Date, now: Date = .now) -> String {
         let seconds = max(date.timeIntervalSince(now), 0)
-        if seconds < 60 { return "Expires in <1m" }
-        return "Expires in \(Int((seconds / 60).rounded(.up)))m"
+        if seconds < 60 { return String(localized: "Expires in <1m") }
+        let minutes = Int((seconds / 60).rounded(.up))
+        return String(localized: "Expires in \(minutes)m")
     }
 
     func showClearConfirmation() {

@@ -42,7 +42,7 @@ struct SelectableTextView: NSViewRepresentable {
             textView.isAutomaticLinkDetectionEnabled = false
             textView.usesFindPanel = false
             textView.allowsUndo = false
-            textView.setAccessibilityLabel("Preview")
+            textView.setAccessibilityLabel(String(localized: "Preview"))
         }
         apply(to: scrollView)
         return scrollView

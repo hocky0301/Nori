@@ -8,13 +8,13 @@ enum PanelFilter: String, CaseIterable, Identifiable, Sendable {
 
     var label: String {
         switch self {
-        case .all: "All"
-        case .text: "Text"
-        case .link: "Links"
-        case .code: "Code"
-        case .color: "Colors"
-        case .image: "Images"
-        case .file: "Files"
+        case .all: String(localized: "All")
+        case .text: String(localized: "Text")
+        case .link: String(localized: "Links")
+        case .code: String(localized: "Code")
+        case .color: String(localized: "Colors")
+        case .image: String(localized: "Images")
+        case .file: String(localized: "Files")
         }
     }
 
@@ -48,13 +48,13 @@ enum PanelFilter: String, CaseIterable, Identifiable, Sendable {
 
     var emptyMessage: String {
         switch self {
-        case .all: "Nothing copied yet"
-        case .text: "No text yet"
-        case .link: "No links yet"
-        case .code: "No code yet"
-        case .color: "No colors yet"
-        case .image: "No images yet"
-        case .file: "No files yet"
+        case .all: String(localized: "Nothing copied yet")
+        case .text: String(localized: "No text yet")
+        case .link: String(localized: "No links yet")
+        case .code: String(localized: "No code yet")
+        case .color: String(localized: "No colors yet")
+        case .image: String(localized: "No images yet")
+        case .file: String(localized: "No files yet")
         }
     }
 

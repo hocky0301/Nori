@@ -11,7 +11,7 @@ struct AboutPane: View {
         let info = Bundle.main.infoDictionary ?? [:]
         let short = info["CFBundleShortVersionString"] as? String ?? "0"
         let build = info["CFBundleVersion"] as? String ?? "0"
-        return "Version \(short) (\(build))"
+        return String(localized: "Version \(short) (\(build))")
     }
 
     private var appName: String {

@@ -77,7 +77,7 @@ final class AppCoordinator {
         #endif
 
         if storage.recoveredFromCorruption {
-            model.showToast("History could not be opened and was reset")
+            model.showToast(String(localized: "History could not be opened and was reset"))
         }
         if !settings.hasCompletedOnboarding, !CommandLine.arguments.contains("--in-memory") {
             showOnboarding()

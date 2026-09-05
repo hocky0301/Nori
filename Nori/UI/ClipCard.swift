@@ -83,33 +83,38 @@ struct CardContextMenu: View {
         ActionGrammar.verb(for: ActionGrammar.resolve(.click, bits, caps))
     }
 
+    /// "Paste    ↩" — the localized verb with its chord printed after it.
+    private func item(_ verb: String, _ key: String) -> String {
+        "\(verb)    \(key)"
+    }
+
     var body: some View {
-        Button("\(verb([]))    ↩") { model.perform(.click, bits: [], on: row.id) }
-        Button("\(verb([.plain]))    ⇧↩") { model.perform(.click, bits: [.plain], on: row.id) }
+        Button(item(verb([]), "↩")) { model.perform(.click, bits: [], on: row.id) }
+        Button(item(verb([.plain]), "⇧↩")) { model.perform(.click, bits: [.plain], on: row.id) }
         if !row.isSensitive {
-            Button("\(verb([.keepOpen]))    ⌥↩") { model.perform(.click, bits: [.keepOpen], on: row.id) }
+            Button(item(verb([.keepOpen]), "⌥↩")) { model.perform(.click, bits: [.keepOpen], on: row.id) }
         }
-        Button("Copy    ⌘↩") { model.perform(.click, bits: [.copyOnly], on: row.id) }
+        Button(item(String(localized: "Copy"), "⌘↩")) { model.perform(.click, bits: [.copyOnly], on: row.id) }
         if !row.isSensitive {
             Divider()
-            Button("Preview    Space") { model.select(id: row.id, scroll: false); model.toggleExpanded() }
-            Button(row.isPinned ? "Unpin    ⌘P" : "Pin    ⌘P") { model.select(id: row.id, scroll: false); model.togglePinSelected() }
+            Button(item(String(localized: "Preview"), String(localized: "Space"))) { model.select(id: row.id, scroll: false); model.toggleExpanded() }
+            Button(item(row.isPinned ? String(localized: "Unpin") : String(localized: "Pin"), "⌘P")) { model.select(id: row.id, scroll: false); model.togglePinSelected() }
             switch row.kind {
             case .link:
                 Divider()
-                Button("Open in Browser    ⌘O") { model.actions.open(row) }
+                Button(item(String(localized: "Open in Browser"), "⌘O")) { model.actions.open(row) }
             case .file:
                 Divider()
-                Button("Open    ⌘O") { model.actions.open(row) }
-                Button("Reveal in Finder    ⌘R") { model.actions.reveal(row) }
+                Button(item(String(localized: "Open"), "⌘O")) { model.actions.open(row) }
+                Button(item(String(localized: "Reveal in Finder"), "⌘R")) { model.actions.reveal(row) }
             case .image:
                 Divider()
-                Button("Open    ⌘O") { model.actions.open(row) }
+                Button(item(String(localized: "Open"), "⌘O")) { model.actions.open(row) }
             case .text, .code, .color:
                 EmptyView()
             }
         }
         Divider()
-        Button("Delete    ⌘⌫") { model.select(id: row.id, scroll: false); model.deleteSelected() }
+        Button(item(String(localized: "Delete"), "⌘⌫")) { model.select(id: row.id, scroll: false); model.deleteSelected() }
     }
 }

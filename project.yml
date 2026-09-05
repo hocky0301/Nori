@@ -51,6 +51,7 @@ targets:
         CFBundleName: Nori
         CFBundleDisplayName: Nori
         CFBundleDevelopmentRegion: en
+        CFBundleLocalizations: [en, ja]
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSApplicationCategoryType: public.app-category.productivity

@@ -42,7 +42,7 @@ final class OnboardingWindowController: NSWindowController, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = "Welcome to Nori"
+        window.title = String(localized: "Welcome to Nori")
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.isReleasedWhenClosed = false
@@ -83,7 +83,7 @@ final class OnboardingWindowController: NSWindowController, NSWindowDelegate {
         // Seed a first clip so the very first ↩ does something.
         if coordinator.history.count == 0 {
             var draft = ClipClassifier.makeDraft(contents: [
-                .init(type: PasteboardType.utf8PlainText, data: Data("Welcome to Nori 👋 Press ↩ to paste this.".utf8)),
+                .init(type: PasteboardType.utf8PlainText, data: Data(String(localized: "Welcome to Nori 👋 Press ↩ to paste this.").utf8)),
             ])!
             draft.sourceAppName = "Nori"
             draft.sourceBundleID = Bundle.main.bundleIdentifier

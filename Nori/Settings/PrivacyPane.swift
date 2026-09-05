@@ -109,9 +109,12 @@ struct PrivacyPane: View {
         let count = model.history.count
         let pinned = model.history.pinnedCount
         if clearIncludesPinned {
-            return "All \(count) clips will be removed, including \(pinned) pinned. This can't be undone."
+            return String(localized: "All \(count) clips will be removed, including \(pinned) pinned. This can't be undone.")
         }
-        return "\(count - pinned) clips will be removed. \(pinned) pinned \(pinned == 1 ? "clip stays" : "clips stay")."
+        let unpinned = count - pinned
+        return pinned == 1
+            ? String(localized: "\(unpinned) clips will be removed. 1 pinned clip stays.")
+            : String(localized: "\(unpinned) clips will be removed. \(pinned) pinned clips stay.")
     }
 
     private func addApp() {

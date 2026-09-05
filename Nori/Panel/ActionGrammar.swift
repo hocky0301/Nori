@@ -54,14 +54,14 @@ enum ActionGrammar {
     /// Verb for hint bars and menus.
     static func verb(for action: Action) -> String {
         switch action {
-        case .paste(false, false): "Paste"
-        case .paste(true, false): "Paste as plain text"
-        case .paste(false, true): "Paste and keep Nori open"
-        case .paste(true, true): "Paste plain, keep open"
-        case .copy(false, false): "Copy"
-        case .copy(true, false): "Copy as plain text"
-        case .copy(false, true): "Copy, keep open"
-        case .copy(true, true): "Copy plain, keep open"
+        case .paste(false, false): String(localized: "Paste")
+        case .paste(true, false): String(localized: "Paste as plain text")
+        case .paste(false, true): String(localized: "Paste and keep Nori open")
+        case .paste(true, true): String(localized: "Paste plain, keep open")
+        case .copy(false, false): String(localized: "Copy")
+        case .copy(true, false): String(localized: "Copy as plain text")
+        case .copy(false, true): String(localized: "Copy, keep open")
+        case .copy(true, true): String(localized: "Copy plain, keep open")
         }
     }
 }
