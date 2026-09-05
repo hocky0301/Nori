@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+jobs:
+  build-and-test:
+    name: Build & test (macOS 26)
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode 26
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)"
+          xcodebuild -version
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Generate project
+        run: xcodegen generate
+
+      - name: Build and test
+        run: |
+          set -o pipefail
+          xcodebuild -project Nori.xcodeproj -scheme Nori -configuration Debug \
+            -destination 'platform=macOS' -derivedDataPath DerivedData \
+            CODE_SIGN_IDENTITY="-" test 2>&1 \
+            | grep -vE 'linkd.autoShortcut|appintentsmetadataprocessor' \
+            | tee build.log | grep -E 'error:|✘|✔ Suite|Executed|\*\* (BUILD|TEST)'
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+
+  release:
+    name: Release build (ad-hoc signed)
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build-and-test
+    runs-on: macos-26
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode 26
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)"
+      - name: Install xcodegen
+        run: brew install xcodegen
+      - name: Build release app
+        run: scripts/release.sh "${GITHUB_REF_NAME#v}"
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/Nori-*.zip
+          generate_release_notes: true
+          body: |
+            Ad-hoc signed build (no Apple Developer ID yet). After unzipping into /Applications, run once:
+
+                xattr -d com.apple.quarantine /Applications/Nori.app
+
+            Then grant Accessibility in System Settings › Privacy & Security so Nori can paste for you.
