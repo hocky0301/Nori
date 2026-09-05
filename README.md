@@ -32,7 +32,16 @@ Press **⌘⇧V** anywhere. A glass panel opens at your pointer with everything 
 - **Honest permissions.** Nori pastes by pressing ⌘V for you, which needs Accessibility. Until you grant it, ↩ visibly becomes *Copy* and the first hint chip is the fix.
 - **Nothing leaves your Mac.** No network code at all. History lives in `~/Library/Application Support/Nori`.
 
-<!-- screenshots grid -->
+<table>
+  <tr>
+    <td><img src="docs/screenshots/panel-dark.png" alt="Dark mode"></td>
+    <td><img src="docs/screenshots/panel-expanded-image.png" alt="Inline preview of an image"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/panel-search.png" alt="Search with highlighted matches"></td>
+    <td><img src="docs/screenshots/panel-cmd-held.png" alt="Hint bar while ⌘ is held"></td>
+  </tr>
+</table>
 
 ## Install
 

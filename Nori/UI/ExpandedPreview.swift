@@ -152,6 +152,17 @@ struct ImagePreview: View {
 
     @State private var image: CGImage?
 
+    /// The image scaled to fit 536 × 150 without upscaling, so the frame and border hug the picture.
+    private var fittedSize: CGSize {
+        let maxWidth = PanelMetrics.cardContentWidth
+        let maxHeight: CGFloat = 150
+        guard let size = row.imagePixelSize, size.width > 0, size.height > 0 else {
+            return CGSize(width: 120, height: 80)
+        }
+        let scale = min(maxWidth / size.width, maxHeight / size.height, 1)
+        return CGSize(width: (size.width * scale).rounded(), height: (size.height * scale).rounded())
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Group {
@@ -172,7 +183,7 @@ struct ImagePreview: View {
                         .frame(height: 80)
                 }
             }
-            .frame(maxWidth: PanelMetrics.cardContentWidth, maxHeight: 150, alignment: .leading)
+            .frame(width: fittedSize.width, height: fittedSize.height)
             .clipShape(RoundedRectangle(cornerRadius: PanelMetrics.Radius.thumb, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: PanelMetrics.Radius.thumb, style: .continuous)
