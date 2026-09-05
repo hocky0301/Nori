@@ -6,21 +6,34 @@ cd "$(dirname "$0")/.."
 OUT=${1:-docs/screenshots}
 mkdir -p "$OUT"
 D="scripts/dev-drive.sh"
-shot() { sleep "${2:-0.8}"; $D shot "$OUT/$1.png" >/dev/null && echo "  $1.png"; }
+
+# The panel closes whenever it loses key focus, which other apps can trigger at any time,
+# so every shot re-opens the panel (a no-op when it is already open) and re-applies its state.
+panel() {                       # panel <name> <cmd>...  → open, apply commands, shoot (retries if the panel got closed)
+  local name=$1; shift
+  for attempt in 1 2 3; do
+    $D cmd open-center; sleep 0.25
+    for c in "query:" "filter:all" "mods:none" "$@"; do $D cmd "$c"; done
+    sleep 0.45
+    if $D shot "$OUT/$name.png" >/dev/null 2>&1; then echo "  $name.png"; return 0; fi
+  done
+  echo "  $name.png FAILED"; return 1
+}
 
 $D launch --seed-demo
-$D cmd open-center; $D cmd select:2;            shot panel-light 1.2
-$D cmd mods:cmd;                                 shot panel-cmd-held 0.5
-$D cmd mods:none; $D cmd query:swift;            shot panel-search
-$D cmd query:; $D cmd filter:code;               shot panel-filter-code
-$D cmd filter:all; $D cmd select:4; $D cmd preview;  shot panel-expanded-image 1.0
-$D cmd preview; $D cmd select:6; $D cmd preview; shot panel-expanded-link 1.0
-$D cmd preview; $D cmd select:8; $D cmd preview; shot panel-expanded-color 1.0
-$D cmd preview; $D cmd ghost;                    shot panel-ghost
-$D cmd appearance:dark; $D cmd select:2;         shot panel-dark
-$D cmd appearance:system; $D cmd close; $D cmd clear; $D cmd open-center; shot panel-empty 1.0
-$D cmd close; $D cmd settings;                   shot settings-general 1.2
-$D cmd settings:privacy;                         shot settings-privacy
-$D cmd onboarding;                               shot onboarding-1 1.2
+panel panel-light          select:2
+panel panel-cmd-held       select:2 mods:cmd
+panel panel-search         query:swift
+panel panel-filter-code    filter:code
+panel panel-expanded-image select:4 preview
+panel panel-expanded-link  select:6 preview
+panel panel-expanded-color select:8 preview
+panel panel-ghost          ghost select:2
+panel panel-dark           appearance:dark select:2
+$D cmd appearance:system; $D cmd close; $D cmd clear
+panel panel-empty
+$D cmd close; $D cmd settings; sleep 1.2; $D shot "$OUT/settings-general.png" >/dev/null && echo "  settings-general.png"
+$D cmd settings:privacy; sleep 0.8;     $D shot "$OUT/settings-privacy.png" >/dev/null && echo "  settings-privacy.png"
+$D cmd onboarding; sleep 1.2;           $D shot "$OUT/onboarding-1.png" >/dev/null && echo "  onboarding-1.png"
 $D kill
 echo "done → $OUT"
