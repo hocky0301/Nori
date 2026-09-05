@@ -41,14 +41,14 @@ enum PanelSections {
             let ordered = scored.enumerated()
                 .sorted { ($0.element.1, $0.offset) < ($1.element.1, $1.offset) }
                 .map(\.element.0)
-            if !ordered.isEmpty { sections.append(Section(title: "Results", rows: ordered)) }
+            if !ordered.isEmpty { sections.append(Section(title: String(localized: "Results"), rows: ordered)) }
         } else {
             let pinned = scored.map(\.0).filter { $0.row.isPinned }
                 .sorted { ($0.row.pinnedAt ?? .distantPast) < ($1.row.pinnedAt ?? .distantPast) }
             let unpinned = scored.map(\.0).filter { !$0.row.isPinned }
                 .sorted { $0.row.lastCopiedAt > $1.row.lastCopiedAt }
 
-            if !pinned.isEmpty { sections.append(Section(title: "Pinned", rows: pinned)) }
+            if !pinned.isEmpty { sections.append(Section(title: String(localized: "Pinned"), rows: pinned)) }
 
             let ghostRows = filter == .all ? ghosts.map { Row(row: $0, titleRanges: [], number: nil) } : []
             var today: [Row] = ghostRows
@@ -64,9 +64,9 @@ enum PanelSections {
                     earlier.append(row)
                 }
             }
-            if !today.isEmpty { sections.append(Section(title: "Today", rows: today)) }
-            if !yesterday.isEmpty { sections.append(Section(title: "Yesterday", rows: yesterday)) }
-            if !earlier.isEmpty { sections.append(Section(title: "Earlier", rows: earlier)) }
+            if !today.isEmpty { sections.append(Section(title: String(localized: "Today"), rows: today)) }
+            if !yesterday.isEmpty { sections.append(Section(title: String(localized: "Yesterday"), rows: yesterday)) }
+            if !earlier.isEmpty { sections.append(Section(title: String(localized: "Earlier"), rows: earlier)) }
         }
 
         // Numbers are positional over the visible list; ghost rows are skipped.
@@ -84,10 +84,10 @@ enum PanelSections {
     /// Relative time for the meta column: "now", "2m", "1h", "1d", "Sep 3".
     static func relativeTime(_ date: Date, now: Date = .now, calendar: Calendar = .current) -> String {
         let seconds = now.timeIntervalSince(date)
-        if seconds < 60 { return "now" }
-        if seconds < 3_600 { return "\(Int(seconds / 60))m" }
-        if seconds < 86_400 { return "\(Int(seconds / 3_600))h" }
-        if seconds < 7 * 86_400 { return "\(Int(seconds / 86_400))d" }
+        if seconds < 60 { return String(localized: "now") }
+        if seconds < 3_600 { let minutes = Int(seconds / 60); return String(localized: "\(minutes)m") }
+        if seconds < 86_400 { let hours = Int(seconds / 3_600); return String(localized: "\(hours)h") }
+        if seconds < 7 * 86_400 { let days = Int(seconds / 86_400); return String(localized: "\(days)d") }
         let formatter = DateFormatter()
         formatter.calendar = calendar
         formatter.setLocalizedDateFormatFromTemplate(calendar.isDate(date, equalTo: now, toGranularity: .year) ? "MMM d" : "MMM d yyyy")

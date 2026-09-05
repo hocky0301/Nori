@@ -6,7 +6,7 @@ struct CapturePane: View {
     @State private var advancedExpanded = false
 
     private static let expiryOptions: [(days: Int, label: String)] = [
-        (0, "Never"), (1, "1 day"), (7, "1 week"), (30, "1 month"),
+        (0, String(localized: "Never")), (1, String(localized: "1 day")), (7, String(localized: "1 week")), (30, String(localized: "1 month")),
     ]
     private static let imageSizeOptions = [5, 10, 25, 50]
 
@@ -56,16 +56,16 @@ struct CapturePane: View {
                         items: $settings.ignoredTypes,
                         placeholder: "com.example.pasteboard-type",
                         restoreDefaults: { settings.ignoredTypes = PasteboardType.defaultIgnoredTypes },
-                        emptyText: "No types are ignored"
+                        emptyText: String(localized: "No types are ignored")
                     )
                     Text("Skip text matching these patterns")
                         .font(.headline)
                         .padding(.top, 8)
                     StringListEditor(
                         items: $settings.ignoreRegexps,
-                        placeholder: "Regular expression",
+                        placeholder: String(localized: "Regular expression"),
                         isValid: SettingsSupport.isValidRegex,
-                        emptyText: "No patterns"
+                        emptyText: String(localized: "No patterns")
                     )
                 }
             }

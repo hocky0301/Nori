@@ -12,7 +12,9 @@ enum SettingsSupport {
         formatter.countStyle = .file
         formatter.allowsNonnumericFormatting = false
         let size = formatter.string(fromByteCount: bytes)
-        return "\(size) · \(count) \(count == 1 ? "clip" : "clips") · \(pinned) pinned"
+        return count == 1
+            ? String(localized: "\(size) · 1 clip · \(pinned) pinned")
+            : String(localized: "\(size) · \(count) clips · \(pinned) pinned")
     }
 
     /// Whether `pattern` compiles as an `NSRegularExpression` (the engine `CapturePolicy` uses).
@@ -110,9 +112,9 @@ enum AppPicker {
 
     static func pick(from window: NSWindow?, completion: @escaping @MainActor (String?) -> Void) {
         let panel = NSOpenPanel()
-        panel.title = "Choose an app"
-        panel.message = "Nori won't remember anything copied in the app you choose."
-        panel.prompt = "Ignore App"
+        panel.title = String(localized: "Choose an app")
+        panel.message = String(localized: "Nori won't remember anything copied in the app you choose.")
+        panel.prompt = String(localized: "Ignore App")
         panel.directoryURL = allowedFolders[0]
         panel.allowedContentTypes = [.applicationBundle]
         panel.allowsMultipleSelection = false

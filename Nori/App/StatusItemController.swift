@@ -27,7 +27,7 @@ final class StatusItemController: NSObject {
     func refresh() {
         statusItem.isVisible = coordinator.settings.showMenuBarIcon
         statusItem.button?.appearsDisabled = coordinator.monitor.isPaused
-        statusItem.button?.toolTip = coordinator.monitor.isPaused ? "Nori — capture paused" : "Nori"
+        statusItem.button?.toolTip = coordinator.monitor.isPaused ? String(localized: "Nori — capture paused") : "Nori"
     }
 
     /// One short blink to acknowledge "skip next copy".
@@ -61,7 +61,7 @@ final class StatusItemController: NSObject {
         let menu = NSMenu()
         menu.autoenablesItems = false
 
-        let open = NSMenuItem(title: "Open Nori", action: #selector(openPanel), keyEquivalent: "")
+        let open = NSMenuItem(title: String(localized: "Open Nori"), action: #selector(openPanel), keyEquivalent: "")
         open.target = self
         if let shortcut = KeyboardShortcuts.getShortcut(for: .togglePanel) {
             open.setShortcut(shortcut)
@@ -70,12 +70,13 @@ final class StatusItemController: NSObject {
         menu.addItem(.separator())
 
         if coordinator.monitor.isPaused {
-            let resume = NSMenuItem(title: "Resume Capture", action: #selector(resume), keyEquivalent: "")
+            let resume = NSMenuItem(title: String(localized: "Resume Capture"), action: #selector(resume), keyEquivalent: "")
             resume.target = self
             if let until = coordinator.settings.pausedUntil, until != .distantFuture {
                 let minutes = max(Int(until.timeIntervalSinceNow / 60), 0)
-                resume.toolTip = "Paused · \(minutes) min left"
-                let caption = NSMenuItem(title: "Paused · \(minutes) min left", action: nil, keyEquivalent: "")
+                let remaining = String(localized: "Paused · \(minutes) min left")
+                resume.toolTip = remaining
+                let caption = NSMenuItem(title: remaining, action: nil, keyEquivalent: "")
                 caption.isEnabled = false
                 menu.addItem(resume)
                 menu.addItem(caption)
@@ -83,22 +84,22 @@ final class StatusItemController: NSObject {
                 menu.addItem(resume)
             }
         } else {
-            let pause = NSMenuItem(title: "Pause Capture", action: nil, keyEquivalent: "")
+            let pause = NSMenuItem(title: String(localized: "Pause Capture"), action: nil, keyEquivalent: "")
             let submenu = NSMenu()
-            for (title, minutes) in [("For 5 Minutes", 5), ("For 30 Minutes", 30)] {
+            for (title, minutes) in [(String(localized: "For 5 Minutes"), 5), (String(localized: "For 30 Minutes"), 30)] {
                 let item = NSMenuItem(title: title, action: #selector(pauseFor(_:)), keyEquivalent: "")
                 item.target = self
                 item.tag = minutes
                 submenu.addItem(item)
             }
-            let untilResumed = NSMenuItem(title: "Until I Resume", action: #selector(pauseUntilResumed), keyEquivalent: "")
+            let untilResumed = NSMenuItem(title: String(localized: "Until I Resume"), action: #selector(pauseUntilResumed), keyEquivalent: "")
             untilResumed.target = self
             submenu.addItem(untilResumed)
             pause.submenu = submenu
             menu.addItem(pause)
         }
 
-        let skip = NSMenuItem(title: "Skip Next Copy", action: #selector(skipNext), keyEquivalent: "")
+        let skip = NSMenuItem(title: String(localized: "Skip Next Copy"), action: #selector(skipNext), keyEquivalent: "")
         skip.target = self
         skip.state = coordinator.monitor.skipNextChange ? .on : .off
         menu.addItem(skip)
@@ -106,26 +107,27 @@ final class StatusItemController: NSObject {
         let notSaved = coordinator.settings.notSavedToday()
         if notSaved > 0 {
             menu.addItem(.separator())
-            let info = NSMenuItem(title: "\(notSaved) item\(notSaved == 1 ? "" : "s") not saved today", action: nil, keyEquivalent: "")
+            let infoTitle = notSaved == 1 ? String(localized: "1 item not saved today") : String(localized: "\(notSaved) items not saved today")
+            let info = NSMenuItem(title: infoTitle, action: nil, keyEquivalent: "")
             info.isEnabled = false
             menu.addItem(info)
         }
 
         menu.addItem(.separator())
-        let clear = NSMenuItem(title: "Clear History…", action: #selector(clearHistory), keyEquivalent: "")
+        let clear = NSMenuItem(title: String(localized: "Clear History…"), action: #selector(clearHistory), keyEquivalent: "")
         clear.target = self
         menu.addItem(clear)
 
-        let settingsItem = NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
+        let settingsItem = NSMenuItem(title: String(localized: "Settings…"), action: #selector(openSettings), keyEquivalent: ",")
         settingsItem.target = self
         menu.addItem(settingsItem)
 
-        let about = NSMenuItem(title: "About Nori", action: #selector(openAbout), keyEquivalent: "")
+        let about = NSMenuItem(title: String(localized: "About Nori"), action: #selector(openAbout), keyEquivalent: "")
         about.target = self
         menu.addItem(about)
 
         menu.addItem(.separator())
-        let quit = NSMenuItem(title: "Quit Nori", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        let quit = NSMenuItem(title: String(localized: "Quit Nori"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         quit.target = NSApp
         menu.addItem(quit)
         return menu
@@ -143,11 +145,11 @@ final class StatusItemController: NSObject {
 
     @objc private func clearHistory() {
         let alert = NSAlert()
-        alert.messageText = "Clear clipboard history?"
-        alert.informativeText = "Pinned clips are kept. Hold ⌥ while clicking Clear to remove pinned clips too."
+        alert.messageText = String(localized: "Clear clipboard history?")
+        alert.informativeText = String(localized: "Pinned clips are kept. Hold ⌥ while clicking Clear to remove pinned clips too.")
         alert.alertStyle = .warning
-        alert.addButton(withTitle: "Clear")
-        alert.addButton(withTitle: "Cancel")
+        alert.addButton(withTitle: String(localized: "Clear"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
         NSApp.activate()
         if alert.runModal() == .alertFirstButtonReturn {
             let includePinned = NSEvent.modifierFlags.contains(.option)

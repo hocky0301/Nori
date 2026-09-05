@@ -6,11 +6,11 @@ enum SettingsTab: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .general: "General"
-        case .capture: "Capture"
-        case .privacy: "Privacy"
-        case .look: "Look"
-        case .about: "About"
+        case .general: String(localized: "General")
+        case .capture: String(localized: "Capture")
+        case .privacy: String(localized: "Privacy")
+        case .look: String(localized: "Look")
+        case .about: String(localized: "About")
         }
     }
     var symbolName: String {
@@ -42,7 +42,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = "Nori Settings"
+        window.title = String(localized: "Nori Settings")
         window.toolbarStyle = .preference
         window.isReleasedWhenClosed = false
         window.contentViewController = tabController
@@ -109,7 +109,7 @@ final class SettingsTabViewController: NSTabViewController {
         guard SettingsTab.allCases.indices.contains(index) else { return }
         let tab = SettingsTab.allCases[index]
         if model.selectedTab != tab { model.selectedTab = tab }
-        view.window?.title = "Nori Settings — \(tab.title)"
+        view.window?.title = String(localized: "Nori Settings — \(tab.title)")
     }
 }
 

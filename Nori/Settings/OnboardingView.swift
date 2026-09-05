@@ -84,7 +84,7 @@ private struct PageDots: View {
 }
 
 private struct StepTitle: View {
-    let text: String
+    let text: LocalizedStringKey
     var body: some View {
         Text(text)
             .font(.title.weight(.semibold))

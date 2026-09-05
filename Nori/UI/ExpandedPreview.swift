@@ -49,15 +49,15 @@ struct ExpandedPreview: View {
     static func metaText(for row: ClipRow) -> String {
         var parts: [String] = []
         if row.isFromUniversalClipboard {
-            parts.append("iPhone or iPad")
+            parts.append(String(localized: "iPhone or iPad"))
         } else if let app = row.sourceAppName, !app.isEmpty {
             parts.append(app)
         } else if let bundleID = row.sourceBundleID, let app = AppIconCache.shared.appName(bundleID: bundleID) {
             parts.append(app)
         }
-        parts.append("first copied \(stamp(row.firstCopiedAt))")
-        parts.append("last \(stamp(row.lastCopiedAt))")
-        parts.append("copied \(row.copyCount)×")
+        parts.append(String(localized: "first copied \(stamp(row.firstCopiedAt))"))
+        parts.append(String(localized: "last \(stamp(row.lastCopiedAt))"))
+        parts.append(String(localized: "copied \(row.copyCount)×"))
         return parts.joined(separator: " · ")
     }
 
@@ -234,7 +234,7 @@ struct FilePreview: View {
 
 /// "Open ⌘O" / "Reveal in Finder ⌘R": a flat button with its chord printed inside.
 struct PreviewActionButton: View {
-    let title: String
+    let title: LocalizedStringKey
     let key: String
     let action: () -> Void
 

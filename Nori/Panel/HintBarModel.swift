@@ -23,62 +23,63 @@ enum HintBarModel {
     static func chips(_ input: Input) -> [Chip] {
         if input.cycleMode {
             return [
-                Chip(key: "Release \(input.hotkeyModifiers)", verb: "to paste"),
-                Chip(key: "↑↓", verb: "Move"),
-                Chip(key: "Esc", verb: "Cancel"),
+                Chip(key: String(localized: "Release \(input.hotkeyModifiers)"), verb: String(localized: "to paste")),
+                Chip(key: "↑↓", verb: String(localized: "Move")),
+                Chip(key: String(localized: "Esc"), verb: String(localized: "Cancel")),
             ]
         }
 
         let caps = ActionGrammar.Capabilities(accessibilityTrusted: input.accessibilityTrusted)
-        let pasteWord = input.accessibilityTrusted ? "Paste" : "Copy"
+        let trusted = input.accessibilityTrusted
         var chips: [Chip] = []
 
         let bits = input.bits
         if bits.isEmpty {
-            if input.accessibilityTrusted {
-                chips.append(Chip(key: "↩", verb: "Paste"))
+            if trusted {
+                chips.append(Chip(key: "↩", verb: String(localized: "Paste")))
             } else {
-                chips.append(Chip(key: "↩", verb: "Copy · Enable pasting →", isWarning: true))
+                chips.append(Chip(key: "↩", verb: String(localized: "Copy · Enable pasting →"), isWarning: true))
             }
-            chips.append(Chip(key: "⇧↩", verb: "Plain"))
-            chips.append(Chip(key: "⌥↩", verb: "Keep open"))
-            chips.append(Chip(key: "⌘↩", verb: "Copy"))
-            chips.append(Chip(key: "Space", verb: "Preview"))
-            chips.append(Chip(key: "⌘P", verb: "Pin"))
-            chips.append(Chip(key: "⌘⌫", verb: "Delete"))
+            chips.append(Chip(key: "⇧↩", verb: String(localized: "Plain")))
+            chips.append(Chip(key: "⌥↩", verb: String(localized: "Keep open")))
+            chips.append(Chip(key: "⌘↩", verb: String(localized: "Copy")))
+            chips.append(Chip(key: String(localized: "Space"), verb: String(localized: "Preview")))
+            chips.append(Chip(key: "⌘P", verb: String(localized: "Pin")))
+            chips.append(Chip(key: "⌘⌫", verb: String(localized: "Delete")))
         } else if bits == [.copyOnly] {
-            chips.append(Chip(key: "⌘1–9", verb: "\(pasteWord) item"))
-            chips.append(Chip(key: "⌘↩", verb: "Copy"))
-            chips.append(Chip(key: "⌘P", verb: "Pin"))
-            chips.append(Chip(key: "⌘Y", verb: "Preview"))
+            chips.append(Chip(key: "⌘1–9", verb: trusted ? String(localized: "Paste item") : String(localized: "Copy item")))
+            chips.append(Chip(key: "⌘↩", verb: String(localized: "Copy")))
+            chips.append(Chip(key: "⌘P", verb: String(localized: "Pin")))
+            chips.append(Chip(key: "⌘Y", verb: String(localized: "Preview")))
             if input.selectedKind == .link || input.selectedKind == .file || input.selectedKind == .image {
-                chips.append(Chip(key: "⌘O", verb: "Open"))
+                chips.append(Chip(key: "⌘O", verb: String(localized: "Open")))
             }
             if input.selectedKind == .file {
-                chips.append(Chip(key: "⌘R", verb: "Reveal"))
+                chips.append(Chip(key: "⌘R", verb: String(localized: "Reveal")))
             }
-            chips.append(Chip(key: "⌘⌫", verb: "Delete"))
-            chips.append(Chip(key: "⌘⇧⌫", verb: "Clear…"))
+            chips.append(Chip(key: "⌘⌫", verb: String(localized: "Delete")))
+            chips.append(Chip(key: "⌘⇧⌫", verb: String(localized: "Clear…")))
         } else if bits == [.plain] {
-            chips.append(Chip(key: "⇧↩", verb: "\(pasteWord) as plain text"))
-            chips.append(Chip(key: "⇧-click", verb: "Same"))
-            chips.append(Chip(key: "⇧⌘1–9", verb: "\(pasteWord) item as plain text"))
+            chips.append(Chip(key: "⇧↩", verb: trusted ? String(localized: "Paste as plain text") : String(localized: "Copy as plain text")))
+            chips.append(Chip(key: String(localized: "⇧-click"), verb: String(localized: "Same")))
+            chips.append(Chip(key: "⇧⌘1–9", verb: trusted ? String(localized: "Paste item as plain text") : String(localized: "Copy item as plain text")))
         } else if bits == [.keepOpen] {
-            chips.append(Chip(key: "⌥↩", verb: "\(pasteWord) and keep Nori open"))
-            chips.append(Chip(key: "⌥-click", verb: "Same"))
-            chips.append(Chip(key: "⌥⌘1–9", verb: "\(pasteWord) item, keep open"))
+            chips.append(Chip(key: "⌥↩", verb: trusted ? String(localized: "Paste and keep Nori open") : String(localized: "Copy and keep Nori open")))
+            chips.append(Chip(key: String(localized: "⌥-click"), verb: String(localized: "Same")))
+            chips.append(Chip(key: "⌥⌘1–9", verb: trusted ? String(localized: "Paste item, keep open") : String(localized: "Copy item, keep open")))
         } else if bits == [.plain, .copyOnly] {
-            chips.append(Chip(key: "⇧⌘↩", verb: "Copy as plain text"))
-            chips.append(Chip(key: "⇧⌘1–9", verb: "\(pasteWord) item as plain text"))
+            chips.append(Chip(key: "⇧⌘↩", verb: String(localized: "Copy as plain text")))
+            chips.append(Chip(key: "⇧⌘1–9", verb: trusted ? String(localized: "Paste item as plain text") : String(localized: "Copy item as plain text")))
         } else if bits == [.keepOpen, .copyOnly] {
-            chips.append(Chip(key: "⌥⌘↩", verb: "Copy, keep open"))
-            chips.append(Chip(key: "⌥⌘1–9", verb: "\(pasteWord) item, keep open"))
+            chips.append(Chip(key: "⌥⌘↩", verb: String(localized: "Copy, keep open")))
+            chips.append(Chip(key: "⌥⌘1–9", verb: trusted ? String(localized: "Paste item, keep open") : String(localized: "Copy item, keep open")))
         } else {
             // ⇧⌥ with or without ⌘: show the stacked result.
             let action = ActionGrammar.resolve(.returnKey, bits, caps)
             chips.append(Chip(key: "\(bits.glyphs)↩", verb: ActionGrammar.verb(for: action)))
             let numberAction = ActionGrammar.resolve(.number(1), bits, caps)
-            chips.append(Chip(key: "\(bits.glyphs.replacingOccurrences(of: "⌘", with: ""))⌘1–9", verb: ActionGrammar.verb(for: numberAction) + " (item)"))
+            let numberVerb = ActionGrammar.verb(for: numberAction)
+            chips.append(Chip(key: "\(bits.glyphs.replacingOccurrences(of: "⌘", with: ""))⌘1–9", verb: String(localized: "\(numberVerb) (item)")))
         }
         return chips
     }

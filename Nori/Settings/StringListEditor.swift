@@ -8,7 +8,7 @@ struct StringListEditor: View {
     /// Entries failing this are drawn in red but still saved (the capture policy skips them).
     var isValid: (String) -> Bool = { _ in true }
     var restoreDefaults: (() -> Void)? = nil
-    var emptyText = "Nothing yet"
+    var emptyText = String(localized: "Nothing yet")
 
     @FocusState private var focusedIndex: Int?
 

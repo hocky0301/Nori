@@ -79,10 +79,10 @@ struct CardContent: View {
 
     private var textCaption: String? {
         var parts: [String] = []
-        if row.lineCount > 1 { parts.append("\(row.lineCount) lines") }
-        if row.lineCount > 1 || row.isRichText { parts.append("\(row.characterCount.formatted()) chars") }
-        if row.isRichText { parts.append("Rich text") }
-        if row.isTruncated { parts.append("Truncated") }
+        if row.lineCount > 1 { parts.append(String(localized: "\(row.lineCount) lines")) }
+        if row.lineCount > 1 || row.isRichText { parts.append(String(localized: "\(row.characterCount.formatted()) chars")) }
+        if row.isRichText { parts.append(String(localized: "Rich text")) }
+        if row.isTruncated { parts.append(String(localized: "Truncated")) }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
@@ -177,7 +177,7 @@ struct CardContent: View {
                 .foregroundStyle(.primary)
                 .lineLimit(1)
             if let expiresAt = row.expiresAt {
-                Text("· \(PanelModel.expiresText(expiresAt))")
+                Text(verbatim: "· \(PanelModel.expiresText(expiresAt))")
                     .font(.cardSecondary)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -226,7 +226,7 @@ struct FileWell: View {
                 CardWell(symbol: "doc", tint: .secondary)
             }
             if urls.count > 1 {
-                Text("+\(urls.count - 1)")
+                Text(verbatim: "+\(urls.count - 1)")
                     .font(.system(size: 9, weight: .bold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 3)
@@ -254,7 +254,7 @@ enum ImageCaption {
 
 enum FileCaption {
     static func name(for row: ClipRow) -> String {
-        if row.fileURLs.count > 1 { return "\(row.fileURLs.count) files" }
+        if row.fileURLs.count > 1 { return String(localized: "\(row.fileURLs.count) files") }
         if let first = row.fileURLs.first { return first.lastPathComponent }
         return row.displayTitle
     }

@@ -43,9 +43,9 @@ enum GhostReason: Sendable, Equatable {
     var message: String {
         switch self {
         case let .concealed(appName):
-            "Concealed item from \(appName ?? "an app") wasn't saved"
+            String(localized: "Concealed item from \(appName ?? String(localized: "an app")) wasn't saved")
         case let .imageTooLarge(bytes):
-            "Image too large (\(ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file))) wasn't saved"
+            String(localized: "Image too large (\(ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file))) wasn't saved")
         }
     }
 }
