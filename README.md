@@ -31,6 +31,7 @@ Press **⌘⇧V** anywhere. A glass panel opens at your pointer with everything 
 - **Visible privacy.** Anything that looks like a secret (API keys, tokens, private keys, card numbers) is masked, kept in memory only and forgotten after ten minutes. Copies from password managers are never recorded. When something was deliberately not saved, a small ghost row tells you why.
 - **Honest permissions.** Nori pastes by pressing ⌘V for you, which needs Accessibility. Until you grant it, ↩ visibly becomes *Copy* and the first hint chip is the fix.
 - **Nothing leaves your Mac.** No network code at all. History lives in `~/Library/Application Support/Nori`.
+- **English and Japanese** UI, following your system language.
 
 <table>
   <tr>

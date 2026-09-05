@@ -1,5 +1,5 @@
 ---
-title: "macOS 26 でクリップボード履歴アプリをゼロから作って踏んだ落とし穴 8 つ ── NSPasteboard・非アクティブ化パネル・SwiftData・Swift 6"
+title: "macOS 26 でクリップボード履歴アプリをゼロから作って踏んだ落とし穴 9 つ ── NSPasteboard・非アクティブ化パネル・SwiftData・Swift 6"
 emoji: "🧷"
 type: "tech"
 topics: ["macos", "swift", "swiftui", "swiftdata"]
@@ -7,7 +7,7 @@ published: false
 ---
 
 Maccy（macOS 定番のクリップボード履歴アプリ、MIT）のソースを全部読んでから、**同じ問題を解く別のアプリ「Nori（糊）」を Swift 6 / SwiftUI / SwiftData でゼロから書きました**。
-この記事は「作ってみた」ではなく、その過程で **実際に踏んで、実際に直した落とし穴 8 つ** と、Maccy と違う判断をした 3 箇所の記録です。
+この記事は「作ってみた」ではなく、その過程で **実際に踏んで、実際に直した落とし穴 9 つ** と、Maccy と違う判断をした 3 箇所の記録です。
 macOS でクリップボード系ツールを書く人、Swift 6 の strict concurrency で AppKit を触る人、GUI アプリの動作確認をスクリプトから自動で回したい人に向けています。
 
 - リポジトリ: https://github.com/hocky0301/Nori （MIT）
@@ -42,7 +42,7 @@ Maccy 2.7.1 は 9,637 行ありますが、アプリの本体は 3 ファイル�
 
 つまり **エッジケースの塊は取り込みルールで、UI は薄い**。だから「UI を綺麗にした別アプリ」を作るなら、取り込みルールは Maccy の判断を全部引き継ぎ、UI と操作体系だけ設計し直すのが正解だと判断しました。Nori の `ClipClassifier.swift` は Maccy の `Clipboard.swift` の判断をテスト付きで純関数に写したものです。
 
-## 踏んだ落とし穴 8 つ
+## 踏んだ落とし穴 9 つ
 
 ### 1. `@main` を NSApplicationDelegate に付けても delegate は入らない
 
@@ -171,6 +171,21 @@ Finder で 2 ファイルをコピーすると、ペーストボードには `pu
 
 自動化スクリプトから `./Nori.app/Contents/MacOS/Nori &` で起動すると、プロセスは生きるのにウィンドウが一切作れません（`CGWindowListCopyWindowInfo` にも出ない）。`open -n Nori.app --args …` で LaunchServices 経由にすると普通に動きます。GUI の検証を自動化するときに最初に踏む壁です。
 
+### 9. 分類を `Task.detached` に投げると、履歴の順番が入れ替わる
+
+取り込みの分類（画像の PNG 変換・サムネイル生成・SHA-256）はメインスレッドでやりたくないので、ポーリングで変化を検知するたびに `Task.detached` に投げていました。これは **順序を保証しない** ので、スクリーンショット（数百 ms かかる）を撮った直後に短いテキストをコピーすると、テキストの分類が先に終わって先に履歴に入り、あとから画像が「最新」として上に積まれます。↩ で貼られるのは意図と違う項目になる。
+
+自分では気付かず、コードレビューで指摘されました。直し方は「前のタスクを await してから自分の分類を始める」チェーンにして、履歴に入れるときはコピー時刻でソート位置を決めること。
+
+```swift
+let previous = pendingClassification
+pendingClassification = Task(priority: .userInitiated) { [weak self] in
+    await previous?.value
+    let outcome = await Task.detached { ClipClassifier.classify(snapshot, policy: policy) }.value
+    self?.deliver(outcome, capturedAt: snapshot.capturedAt)
+}
+```
+
 ## Maccy と違う判断をした 3 箇所
 
 ### 操作体系を「文法」1 つに固定した
@@ -229,6 +244,7 @@ scripts/dev-drive.sh shot panel.png
 - App Sandbox は未対応。
 - 画像 OCR（スクリーンショットの文字検索）は実装済みですが既定でオフ（Vision の結果が非決定的でテストしづらいため）。
 - Chrome Remote Desktop / NetBeans など、合成した ⌘V を無視するアプリへの対策（Maccy がやっているアクティベート→隠す小技）は入れていません。
+- UI は英語と日本語（String Catalog、244 キー）。他言語は未対応。
 
 ## まとめ
 
