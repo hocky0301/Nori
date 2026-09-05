@@ -269,6 +269,10 @@ extension PanelActions {
         togglePause = { [unowned coordinator] in coordinator.togglePause() }
         enablePasting = { [unowned coordinator] in coordinator.enablePasting() }
         close = { [unowned coordinator] in coordinator.panelController.close(reason: "model") }
+        pauseCapture = { [unowned coordinator] until in coordinator.pauseCapture(until: until) }
+        resumeCapture = { [unowned coordinator] in coordinator.resumeCapture() }
+        skipNextCopy = { [unowned coordinator] in coordinator.monitor.skipNextChange.toggle() }
+        openAbout = { [unowned coordinator] in coordinator.openSettings(tab: .about) }
         AppCoordinatorRegistry.shared = coordinator
     }
 }
