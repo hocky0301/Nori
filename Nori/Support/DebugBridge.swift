@@ -5,7 +5,9 @@ import Foundation
 /// Lets scripts drive the app during development:
 ///   `notifyutil` cannot carry payloads, so we use DistributedNotificationCenter:
 ///   swift -e 'import Foundation; DistributedNotificationCenter.default().postNotificationName(.init("io.github.hocky0301.Nori.debug"), object: "open", userInfo: nil, deliverImmediately: true)'
-/// Commands: open, close, toggle, seed, clear, screenshot:<path>, settings:<tab>, onboarding:<1|2|3>
+/// Commands: open, close, toggle, seed, clear, screenshot:<path>, settings:<tab>, onboarding:<1|2|3>,
+///   appearance:dark|light|system, mods:cmd|shift|opt|none, pin, delete, confirm-clear, banner, toast:<text>
+///   (plus the model commands below)
 @MainActor
 final class DebugBridge {
     /// `--debug-channel=NAME` isolates parallel dev instances (each listens on its own name).
@@ -56,6 +58,19 @@ final class DebugBridge {
         case "ghost": coordinator.model.addGhost(.concealed(appName: "1Password"), at: .now)
         case "pause": coordinator.pauseCapture(until: .now.addingTimeInterval(1800))
         case "resume": coordinator.resumeCapture()
+        case "appearance:dark": coordinator.panelController.panel.appearance = NSAppearance(named: .darkAqua)
+        case "appearance:light": coordinator.panelController.panel.appearance = NSAppearance(named: .aqua)
+        case "appearance:system": coordinator.panelController.panel.appearance = nil
+        case "mods:cmd": coordinator.model.debugSetModifierBits([.copyOnly])
+        case "mods:shift": coordinator.model.debugSetModifierBits([.plain])
+        case "mods:opt": coordinator.model.debugSetModifierBits([.keepOpen])
+        case "mods:none": coordinator.model.debugSetModifierBits([])
+        case "pin": coordinator.model.togglePinSelected()
+        case "delete": coordinator.model.deleteSelected()
+        case "confirm-clear": coordinator.model.showClearConfirmation()
+        case "banner": coordinator.model.showsAccessibilityBanner = true
+        case let cmd where cmd.hasPrefix("toast:"):
+            coordinator.model.showToast(String(cmd.dropFirst("toast:".count)))
         default: NSLog("DebugBridge: unknown command \(command)")
         }
     }

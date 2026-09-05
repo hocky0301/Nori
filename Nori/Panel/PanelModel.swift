@@ -276,6 +276,34 @@ final class PanelModel {
 
     func close() { actions.close() }
 
+    // MARK: UI helpers
+
+    /// "⇧⌘V" — the live hotkey, for the empty state.
+    var hotkeyDisplay: String {
+        KeyboardShortcuts.getShortcut(for: .togglePanel)?.description ?? "⇧⌘V"
+    }
+
+    /// When capture resumes: nil = capturing, `.distantFuture` = until resumed.
+    var pausedUntil: Date? { isPaused ? settings.pausedUntil : nil }
+
+    /// "Expires in 8m" for sensitive cards.
+    static func expiresText(_ date: Date, now: Date = .now) -> String {
+        let seconds = max(date.timeIntervalSince(now), 0)
+        if seconds < 60 { return "Expires in <1m" }
+        return "Expires in \(Int((seconds / 60).rounded(.up)))m"
+    }
+
+    func showClearConfirmation() {
+        isClearConfirmationVisible = true
+    }
+
+    #if DEBUG
+    /// Lets the debug bridge screenshot the ⌘ / ⇧ / ⌥ hint-bar states without a hand on the keyboard.
+    func debugSetModifierBits(_ bits: ActionGrammar.Bits) {
+        modifierBits = bits
+    }
+    #endif
+
     // MARK: Keyboard
 
     /// Route a key event. Returns true when the event was consumed.
@@ -417,6 +445,11 @@ struct PanelActions {
     var togglePause: () -> Void = {}
     var enablePasting: () -> Void = {}
     var close: () -> Void = {}
+    // Search-row menu (additive, wired by the coordinator).
+    var pauseCapture: (Date) -> Void = { _ in }
+    var resumeCapture: () -> Void = {}
+    var skipNextCopy: () -> Void = {}
+    var openAbout: () -> Void = {}
 }
 
 /// Key codes we care about, decoded once.
