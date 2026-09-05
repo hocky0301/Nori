@@ -47,6 +47,11 @@ final class DebugBridge {
             coordinator.model.query = String(cmd.dropFirst("query:".count))
         case let cmd where cmd.hasPrefix("filter:"):
             if let filter = PanelFilter(rawValue: String(cmd.dropFirst("filter:".count))) { coordinator.model.filter = filter }
+        case let cmd where cmd.hasPrefix("select:"):
+            // Deterministic selection for screenshots (hover would otherwise follow the pointer).
+            if let n = Int(cmd.dropFirst("select:".count)), let row = coordinator.model.rows.filter({ !$0.row.isGhost })[safe: n - 1] {
+                coordinator.model.select(id: row.id)
+            }
         case "down": coordinator.model.moveSelection(by: 1)
         case "up": coordinator.model.moveSelection(by: -1)
         case "preview": coordinator.model.toggleExpanded()
@@ -125,19 +130,50 @@ final class DebugBridge {
         var secret = text("ghp_abcdefghijklmnopqrstuvwxyz0123456789ABCD", app: "com.apple.Safari")
         secret.sourceAppName = "Safari"
         coordinator.vault.add(SensitiveDraft(match: .gitHubToken, mask: SecretDetector.mask(secret.plainText ?? ""), draft: secret))
-        if let image = NSImage(systemSymbolName: "photo.artframe", accessibilityDescription: nil)?
-            .withSymbolConfiguration(.init(pointSize: 160, weight: .regular)),
-           let tiff = image.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff),
-           let png = rep.representation(using: .png, properties: [:]) {
+        if let png = Self.demoScreenshotPNG() {
             var draft = ClipClassifier.makeDraft(contents: [.init(type: PasteboardType.png, data: png)])!
-            draft.sourceBundleID = "com.apple.Preview"
+            draft.sourceBundleID = "com.apple.screencaptureui"
+            draft.sourceAppName = "Screenshot"
             history.ingest(draft, now: time)
         }
-        let fileURL = URL(fileURLWithPath: "/Applications/Safari.app")
+        let fileURL = URL(fileURLWithPath: "/Applications/Xcode.app")
         var fileDraft = ClipClassifier.makeDraft(contents: [.init(type: PasteboardType.fileURL, data: fileURL.dataRepresentation)])!
         fileDraft.sourceBundleID = "com.apple.finder"
         history.ingest(fileDraft, now: time.addingTimeInterval(60))
         if let last = history.rows.last { history.togglePin(id: last.id) }
+    }
+}
+
+extension DebugBridge {
+    /// A 1440×900 mock "app window" so image cards and previews look like a real screenshot.
+    static func demoScreenshotPNG() -> Data? {
+        let size = NSSize(width: 1440, height: 900)
+        let image = NSImage(size: size, flipped: false) { rect in
+            NSGradient(colors: [NSColor(calibratedRed: 0.18, green: 0.20, blue: 0.42, alpha: 1),
+                                NSColor(calibratedRed: 0.55, green: 0.30, blue: 0.68, alpha: 1),
+                                NSColor(calibratedRed: 0.98, green: 0.55, blue: 0.40, alpha: 1)])?
+                .draw(in: rect, angle: -30)
+            // A "window" with a title bar and three lines of "text".
+            let window = NSRect(x: 180, y: 120, width: 1080, height: 640)
+            NSColor(white: 1, alpha: 0.92).setFill()
+            NSBezierPath(roundedRect: window, xRadius: 22, yRadius: 22).fill()
+            NSColor(white: 0.93, alpha: 1).setFill()
+            NSBezierPath(roundedRect: NSRect(x: window.minX, y: window.maxY - 52, width: window.width, height: 52), xRadius: 22, yRadius: 22).fill()
+            for (i, color) in [NSColor.systemRed, .systemYellow, .systemGreen].enumerated() {
+                color.setFill()
+                NSBezierPath(ovalIn: NSRect(x: window.minX + 22 + CGFloat(i) * 22, y: window.maxY - 33, width: 14, height: 14)).fill()
+            }
+            NSColor(white: 0.82, alpha: 1).setFill()
+            for i in 0..<7 {
+                let width = [620, 840, 480, 760, 700, 300, 560][i]
+                NSBezierPath(roundedRect: NSRect(x: window.minX + 48, y: window.maxY - 120 - CGFloat(i) * 56, width: CGFloat(width), height: 20), xRadius: 10, yRadius: 10).fill()
+            }
+            NSColor(calibratedRed: 0.42, green: 0.38, blue: 0.98, alpha: 1).setFill()
+            NSBezierPath(roundedRect: NSRect(x: window.minX + 48, y: window.minY + 48, width: 180, height: 44), xRadius: 12, yRadius: 12).fill()
+            return true
+        }
+        guard let tiff = image.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff) else { return nil }
+        return rep.representation(using: .png, properties: [:])
     }
 }
 #endif
