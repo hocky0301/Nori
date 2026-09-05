@@ -15,12 +15,17 @@ post() {
 
 case "$1" in
   launch)
+    # Launch through LaunchServices: a direct exec from this shell cannot reach the window server.
     if [ -f "$PIDFILE" ]; then kill "$(cat "$PIDFILE")" 2>/dev/null || true; rm -f "$PIDFILE"; fi
     shift
-    "$APP/Contents/MacOS/Nori" --in-memory ${CHANNEL:+--debug-channel=$CHANNEL} "$@" >/dev/null 2>&1 &
-    echo $! > "$PIDFILE"
+    BEFORE=$(pgrep -x Nori | sort)
+    open -n "$APP" --args --in-memory ${CHANNEL:+--debug-channel=$CHANNEL} "$@"
     sleep 1.5
-    kill -0 "$(cat "$PIDFILE")" 2>/dev/null && echo "Nori running (pid $(cat "$PIDFILE"), channel '${CHANNEL:-default}')" || { echo "Nori failed to start"; exit 1; }
+    AFTER=$(pgrep -x Nori | sort)
+    NEWPID=$(comm -13 <(echo "$BEFORE") <(echo "$AFTER") | head -1)
+    if [ -z "$NEWPID" ]; then echo "Nori failed to start"; exit 1; fi
+    echo "$NEWPID" > "$PIDFILE"
+    echo "Nori running (pid $NEWPID, channel '${CHANNEL:-default}')"
     ;;
   kill) [ -f "$PIDFILE" ] && { kill "$(cat "$PIDFILE")" 2>/dev/null || true; rm -f "$PIDFILE"; }; echo killed ;;
   cmd) post "$2" ;;
