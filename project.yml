@@ -1,0 +1,99 @@
+name: Nori
+options:
+  bundleIdPrefix: io.github.hocky0301
+  deploymentTarget:
+    macOS: "26.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+configs:
+  Debug: debug
+  Release: release
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY: YES
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    CODE_SIGN_STYLE: Automatic
+    # Ad-hoc signing by default so anyone can build. Override with
+    # `xcodebuild ... DEVELOPMENT_TEAM=XXXXXXXXXX CODE_SIGN_IDENTITY="Apple Development"`
+    CODE_SIGN_IDENTITY: "-"
+    ENABLE_HARDENED_RUNTIME: YES
+    DEAD_CODE_STRIPPING: YES
+    ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+    COMBINE_HIDPI_IMAGES: YES
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+  configs:
+    Debug:
+      SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
+      ONLY_ACTIVE_ARCH: YES
+    Release:
+      SWIFT_COMPILATION_MODE: wholemodule
+packages:
+  KeyboardShortcuts:
+    url: https://github.com/sindresorhus/KeyboardShortcuts
+    from: 2.0.0
+targets:
+  Nori:
+    type: application
+    platform: macOS
+    sources:
+      - path: Nori
+        excludes:
+          - "**/.DS_Store"
+    dependencies:
+      - package: KeyboardShortcuts
+    info:
+      path: Nori/Info.plist
+      properties:
+        CFBundleName: Nori
+        CFBundleDisplayName: Nori
+        CFBundleDevelopmentRegion: en
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSApplicationCategoryType: public.app-category.productivity
+        LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
+        LSUIElement: true
+        NSHumanReadableCopyright: "Copyright © 2026 Kamil Ijuin. MIT License."
+        NSPrincipalClass: NSApplication
+        NSSupportsAutomaticTermination: false
+        NSSupportsSuddenTermination: false
+    entitlements:
+      path: Nori/Nori.entitlements
+      properties: {}
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.hocky0301.Nori
+        PRODUCT_NAME: Nori
+        INFOPLIST_KEY_LSUIElement: YES
+        SWIFT_EMIT_LOC_STRINGS: YES
+        GENERATE_INFOPLIST_FILE: NO
+  NoriTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: NoriTests
+    dependencies:
+      - target: Nori
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.hocky0301.NoriTests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/Nori.app/Contents/MacOS/Nori
+        BUNDLE_LOADER: $(TEST_HOST)
+schemes:
+  Nori:
+    build:
+      targets:
+        Nori: all
+        NoriTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - NoriTests
+    archive:
+      config: Release

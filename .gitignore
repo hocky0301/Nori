@@ -1,0 +1,22 @@
+# Reference material (Maccy archives) — not part of the repo
+_reference/
+*.zip
+*.tar.gz
+
+# Xcode / SwiftPM
+*.xcodeproj
+!*.xcodeproj/project.pbxproj
+*.xcworkspace
+xcuserdata/
+DerivedData/
+.build/
+.swiftpm/
+build/
+dist/
+
+# xcodegen output is regenerated from project.yml
+Nori.xcodeproj/
+
+# Local overrides
+Local.xcconfig
+.DS_Store
