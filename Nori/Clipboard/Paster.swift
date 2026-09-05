@@ -7,7 +7,7 @@ import OSLog
 enum Paster {
     private static let logger = Logger(subsystem: "io.github.hocky0301.Nori", category: "paste")
 
-    /// Whether macOS lets Nori synthesise keystrokes.
+    /// Whether macOS lets Nori synthesise keystrokes. Re-read on every action: trust drifts after rebuilds.
     static var isTrusted: Bool { AXIsProcessTrusted() }
 
     /// Ask macOS to show the Accessibility prompt (once per app signature).
@@ -30,7 +30,7 @@ enum Paster {
             logger.notice("paste skipped: Accessibility permission not granted")
             return false
         }
-        let keyCode = KeyCodeLookup.keyCode(for: "v") ?? CGKeyCode(kVK_ANSI_V)
+        let keyCode = KeyCodeLookup.commandV()
         let source = CGEventSource(stateID: .combinedSessionState)
         // Stop the user's physical modifier state from bleeding into the synthetic event.
         source?.setLocalEventsFilterDuringSuppressionState(
@@ -41,24 +41,33 @@ enum Paster {
               let up = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: false) else {
             return false
         }
-        down.flags = .maskCommand
-        up.flags = .maskCommand
+        // 0x8 marks the left-side device modifier; some apps ignore ⌘ without it (Flycut #18).
+        let flags = CGEventFlags(rawValue: CGEventFlags.maskCommand.rawValue | 0x0008)
+        down.flags = flags
+        up.flags = flags
         down.post(tap: .cgSessionEventTap)
+        usleep(10_000)
         up.post(tap: .cgSessionEventTap)
         return true
     }
 }
 
 /// Finds the virtual key code that produces a character under the *current* keyboard layout,
-/// so ⌘V still means "paste" on Dvorak, Colemak or JIS layouts.
+/// so ⌘V still means "paste" on Dvorak, Colemak, AZERTY or JIS layouts.
 enum KeyCodeLookup {
-    static func keyCode(for character: Character) -> CGKeyCode? {
+    /// The key that yields "v" on the ⌘ layer (handles "Dvorak – QWERTY ⌘"), falling back to ANSI V.
+    static func commandV() -> CGKeyCode {
+        keyCode(for: "v", withCommand: true) ?? keyCode(for: "v", withCommand: false) ?? CGKeyCode(kVK_ANSI_V)
+    }
+
+    static func keyCode(for character: Character, withCommand: Bool = false) -> CGKeyCode? {
         guard let source = TISCopyCurrentKeyboardLayoutInputSource()?.takeRetainedValue(),
               let layoutPointer = TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData) else {
             return nil
         }
         let layoutData = Unmanaged<CFData>.fromOpaque(layoutPointer).takeUnretainedValue() as Data
         let target = String(character).lowercased()
+        let modifierState: UInt32 = withCommand ? UInt32((cmdKey >> 8) & 0xFF) : 0
 
         return layoutData.withUnsafeBytes { raw -> CGKeyCode? in
             guard let layout = raw.baseAddress?.assumingMemoryBound(to: UCKeyboardLayout.self) else { return nil }
@@ -68,7 +77,7 @@ enum KeyCodeLookup {
             for code in 0..<128 {
                 deadKeyState = 0
                 let status = UCKeyTranslate(
-                    layout, UInt16(code), UInt16(kUCKeyActionDown), 0,
+                    layout, UInt16(code), UInt16(kUCKeyActionDown), modifierState,
                     UInt32(LMGetKbdType()), UInt32(kUCKeyTranslateNoDeadKeysMask),
                     &deadKeyState, buffer.count, &length, &buffer
                 )

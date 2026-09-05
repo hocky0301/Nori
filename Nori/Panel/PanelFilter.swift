@@ -1,8 +1,8 @@
 import Foundation
 
-/// The chips above the list. `text` folds plain and rich text together.
+/// The chips above the list. Pinned is a section, not a filter.
 enum PanelFilter: String, CaseIterable, Identifiable, Sendable {
-    case all, text, code, link, image, file, color, pinned
+    case all, text, link, code, color, image, file
 
     var id: String { rawValue }
 
@@ -10,12 +10,11 @@ enum PanelFilter: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .all: "All"
         case .text: "Text"
-        case .code: "Code"
         case .link: "Links"
+        case .code: "Code"
+        case .color: "Colors"
         case .image: "Images"
         case .file: "Files"
-        case .color: "Colors"
-        case .pinned: "Pinned"
         }
     }
 
@@ -23,25 +22,39 @@ enum PanelFilter: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .all: "tray.full"
         case .text: ClipKind.text.symbolName
-        case .code: ClipKind.code.symbolName
         case .link: ClipKind.link.symbolName
+        case .code: ClipKind.code.symbolName
+        case .color: ClipKind.color.symbolName
         case .image: ClipKind.image.symbolName
         case .file: ClipKind.file.symbolName
-        case .color: ClipKind.color.symbolName
-        case .pinned: "pin"
         }
     }
 
-    func matches(kind: ClipKind, isPinned: Bool) -> Bool {
+    var kind: ClipKind? {
         switch self {
-        case .all: true
-        case .text: kind == .text || kind == .richText
-        case .code: kind == .code
-        case .link: kind == .link
-        case .image: kind == .image
-        case .file: kind == .file
-        case .color: kind == .color
-        case .pinned: isPinned
+        case .all: nil
+        case .text: .text
+        case .link: .link
+        case .code: .code
+        case .color: .color
+        case .image: .image
+        case .file: .file
+        }
+    }
+
+    func matches(kind: ClipKind) -> Bool {
+        self.kind == nil || self.kind == kind
+    }
+
+    var emptyMessage: String {
+        switch self {
+        case .all: "Nothing copied yet"
+        case .text: "No text yet"
+        case .link: "No links yet"
+        case .code: "No code yet"
+        case .color: "No colors yet"
+        case .image: "No images yet"
+        case .file: "No files yet"
         }
     }
 

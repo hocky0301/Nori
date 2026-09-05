@@ -4,7 +4,7 @@ import SwiftData
 /// One entry in the clipboard history, persisted with SwiftData.
 ///
 /// Large payloads live in `ClipContent` rows (external storage), so listing and
-/// searching the history never has to load image bytes.
+/// searching the history never has to load image bytes; image cards use the inline thumbnail.
 @Model
 final class ClipItem {
     @Attribute(.unique) var id: UUID
@@ -13,6 +13,7 @@ final class ClipItem {
     var searchText: String
     var contentHash: String
     var sourceBundleID: String?
+    var sourceAppName: String?
     var firstCopiedAt: Date
     var lastCopiedAt: Date
     var copyCount: Int
@@ -22,12 +23,15 @@ final class ClipItem {
     var characterCount: Int
     var lineCount: Int
     var isFromUniversalClipboard: Bool
+    var isRichText: Bool
+    var isTruncated: Bool
 
     var linkURLString: String?
     var colorHex: String?
     var fileURLStrings: [String]
     var imageWidth: Int?
     var imageHeight: Int?
+    var thumbnail: Data?
 
     @Relationship(deleteRule: .cascade, inverse: \ClipContent.item)
     var contents: [ClipContent]
@@ -39,6 +43,7 @@ final class ClipItem {
         searchText = draft.searchText
         contentHash = draft.contentHash
         sourceBundleID = draft.sourceBundleID
+        sourceAppName = draft.sourceAppName
         firstCopiedAt = now
         lastCopiedAt = now
         copyCount = 1
@@ -47,6 +52,8 @@ final class ClipItem {
         characterCount = draft.characterCount
         lineCount = draft.lineCount
         isFromUniversalClipboard = draft.isFromUniversalClipboard
+        isRichText = draft.isRichText
+        isTruncated = draft.isTruncated
         linkURLString = draft.linkURL?.absoluteString
         colorHex = draft.colorHex
         fileURLStrings = draft.fileURLs.map(\.absoluteString)
@@ -54,7 +61,8 @@ final class ClipItem {
             imageWidth = Int(size.width)
             imageHeight = Int(size.height)
         }
-        // Relationships are attached after the item is inserted into a context (see HistoryStore.ingest);
+        thumbnail = draft.thumbnail
+        // Relationships are attached after the item is inserted into a context (see HistoryStore);
         // wiring them up in init trips a SwiftData assertion.
         contents = []
     }
@@ -65,9 +73,7 @@ final class ClipItem {
     }
 
     var isPinned: Bool { pinnedAt != nil }
-
     var linkURL: URL? { linkURLString.flatMap(URL.init(string:)) }
-
     var fileURLs: [URL] { fileURLStrings.compactMap(URL.init(string:)) }
 
     var imagePixelSize: CGSize? {
@@ -84,6 +90,11 @@ final class ClipItem {
             if let data = data(for: type) { return data }
         }
         return nil
+    }
+
+    /// Representations as plain values (for pasting and previews).
+    var draftContents: [ClipDraft.Content] {
+        contents.map { ClipDraft.Content(type: $0.type, data: $0.data) }
     }
 
     /// Best plain-text representation, used for "paste as plain text" and previews.
@@ -103,6 +114,36 @@ final class ClipItem {
     }
 
     var imageData: Data? { data(forAny: PasteboardType.imageTypes) }
+
+    /// Snapshot used by the panel; views never hold `@Model` instances.
+    func makeRow() -> ClipRow {
+        ClipRow(
+            id: id,
+            source: .history,
+            kind: kind,
+            title: title,
+            searchText: searchText,
+            sourceBundleID: sourceBundleID,
+            sourceAppName: sourceAppName,
+            isFromUniversalClipboard: isFromUniversalClipboard,
+            firstCopiedAt: firstCopiedAt,
+            lastCopiedAt: lastCopiedAt,
+            copyCount: copyCount,
+            pinnedAt: pinnedAt,
+            byteCount: byteCount,
+            characterCount: characterCount,
+            lineCount: lineCount,
+            isRichText: isRichText,
+            isTruncated: isTruncated,
+            linkURL: linkURL,
+            colorHex: colorHex,
+            fileURLs: fileURLs,
+            imagePixelSize: imagePixelSize,
+            thumbnail: thumbnail,
+            expiresAt: nil,
+            ghostReason: nil
+        )
+    }
 }
 
 @Model

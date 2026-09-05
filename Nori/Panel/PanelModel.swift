@@ -7,194 +7,271 @@ import OSLog
 @MainActor
 @Observable
 final class PanelModel {
-    struct Row: Identifiable, Equatable {
-        let item: ClipItem
-        var titleRanges: [Range<String.Index>]
-        var id: UUID { item.id }
-        static func == (lhs: Row, rhs: Row) -> Bool { lhs.item.id == rhs.item.id && lhs.titleRanges == rhs.titleRanges }
-    }
-
     let history: HistoryStore
+    let vault: SensitiveVault
     let settings: NoriSettings
     var actions = PanelActions()
 
-    var query = "" { didSet { if query != oldValue { recompute(resetSelection: true) } } }
-    var filter: PanelFilter = .all { didSet { if filter != oldValue { recompute(resetSelection: true) } } }
-    private(set) var pinnedRows: [Row] = []
-    private(set) var recentRows: [Row] = []
+    var query = "" { didSet { if query != oldValue { recompute(resetSelection: true); expandedID = nil } } }
+    var filter: PanelFilter = .all { didSet { if filter != oldValue { recompute(resetSelection: true); expandedID = nil } } }
+    private(set) var sections: [PanelSections.Section] = []
     var selectedID: UUID?
-    var isPreviewVisible: Bool
-    /// True while the user navigates with keys; hover is ignored so the mouse does not steal the selection.
-    var isKeyboardNavigating = true
+    /// The card showing its inline preview, if any.
+    var expandedID: UUID?
+    /// Current modifier bits, mirrored for the hint bar and keycaps.
+    private(set) var modifierBits: ActionGrammar.Bits = []
+    private(set) var isCycling = false
     var isOpen = false
     /// Incremented when the view should scroll to `selectedID`.
     private(set) var scrollRequest = 0
-    /// Set when Enter was pressed but pasting is impossible; the view shows a hint.
-    var lastNotice: String?
+    /// Bottom toast text; nil when hidden.
+    private(set) var toast: String?
+    /// Ghost rows for copies that were deliberately not saved (max 5, newest first).
+    private(set) var ghosts: [ClipRow] = []
+    /// Shown once a day when pasting silently degraded to copying.
+    var showsAccessibilityBanner = false
+    /// Nori's own "Clear history?" confirmation, shown inside the panel.
+    var isClearConfirmationVisible = false
 
     @ObservationIgnored private var cycleState: CycleState = .idle
-    @ObservationIgnored private var lastHistoryVersion = -1
+    @ObservationIgnored private var lastKeyPressAt: Date = .distantPast
+    @ObservationIgnored private var undoRecord: HistoryStore.UndoRecord?
+    @ObservationIgnored private var toastTask: Task<Void, Never>?
+    @ObservationIgnored private var ghostsWereShown = false
     private let logger = Logger(subsystem: "io.github.hocky0301.Nori", category: "panelmodel")
 
     private enum CycleState { case idle, opening, cycling }
 
-    init(history: HistoryStore, settings: NoriSettings) {
+    init(history: HistoryStore, vault: SensitiveVault, settings: NoriSettings) {
         self.history = history
+        self.vault = vault
         self.settings = settings
-        isPreviewVisible = settings.showPreviewPane
-        observeHistory()
+        observeStores()
     }
 
     // MARK: Derived state
 
-    var rows: [Row] { pinnedRows + recentRows }
+    var rows: [PanelSections.Row] { sections.flatMap(\.rows) }
     var isEmpty: Bool { rows.isEmpty }
-    var selectedRow: Row? { rows.first { $0.id == selectedID } }
-    var selectedItem: ClipItem? { selectedRow?.item }
+    var isSearching: Bool { !query.trimmingCharacters(in: .whitespaces).isEmpty }
+    var selectedRow: PanelSections.Row? { rows.first { $0.id == selectedID } }
+    var selectedClip: ClipRow? { selectedRow?.row }
     var selectedIndex: Int? { rows.firstIndex { $0.id == selectedID } }
-    var totalCount: Int { history.items.count }
+    var historyIsEmpty: Bool { history.rows.isEmpty && vault.entries.isEmpty }
+    var accessibilityTrusted: Bool { Paster.isTrusted }
 
-    /// The `⌘n` shortcut number shown next to the first nine unpinned rows, if any.
-    func quickNumber(for row: Row) -> Int? {
-        guard let index = recentRows.firstIndex(where: { $0.id == row.id }), index < 9 else { return nil }
-        return index + 1
+    var isPaused: Bool {
+        guard let until = settings.pausedUntil else { return false }
+        return until > .now
     }
 
-    private func observeHistory() {
+    /// Hotkey modifier glyphs for the cycle-mode hint ("⇧⌘").
+    var hotkeyModifierGlyphs: String {
+        guard let shortcut = KeyboardShortcuts.getShortcut(for: .togglePanel) else { return "⇧⌘" }
+        let glyphs = ActionGrammar.Bits(modifierFlags: shortcut.modifiers).glyphs
+        return glyphs.isEmpty ? "⌃" : glyphs
+    }
+
+    var hintChips: [HintBarModel.Chip] {
+        HintBarModel.chips(.init(
+            bits: modifierBits,
+            accessibilityTrusted: accessibilityTrusted,
+            cycleMode: isCycling,
+            hotkeyModifiers: hotkeyModifierGlyphs,
+            selectedKind: selectedClip?.kind,
+            hasSelection: selectedID != nil
+        ))
+    }
+
+    /// Whether hover may move the selection (not right after a key press).
+    var hoverSelectsRows: Bool { Date.now.timeIntervalSince(lastKeyPressAt) > 0.15 }
+
+    func count(for filter: PanelFilter) -> Int {
+        (history.rows + vault.rows).filter { filter.matches(kind: $0.kind) }.count
+    }
+
+    private func observeStores() {
         withObservationTracking {
             _ = history.version
+            _ = vault.version
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 recompute(resetSelection: false)
-                observeHistory()
+                observeStores()
             }
         }
     }
 
     func recompute(resetSelection: Bool) {
-        let searching = !query.trimmingCharacters(in: .whitespaces).isEmpty
-        var pinned: [(Row, Double)] = []
-        var recent: [(Row, Double)] = []
-
-        for item in history.items where filter.matches(kind: item.kind, isPinned: item.isPinned) {
-            guard let match = HistorySearch.match(query: query, title: item.title, searchText: item.searchText) else { continue }
-            let row = Row(item: item, titleRanges: match.titleRanges)
-            if item.isPinned, !searching, filter != .pinned {
-                pinned.append((row, match.score))
-            } else {
-                recent.append((row, match.score))
-            }
-        }
-
-        pinnedRows = pinned.map(\.0).sorted { ($0.item.pinnedAt ?? .distantPast) > ($1.item.pinnedAt ?? .distantPast) }
-        if searching {
-            // Stable sort: better score first, then recency.
-            recentRows = recent.enumerated()
-                .sorted { ($0.element.1, $0.offset) < ($1.element.1, $1.offset) }
-                .map(\.element.0)
-        } else if filter == .pinned {
-            recentRows = recent.map(\.0).sorted { ($0.item.pinnedAt ?? .distantPast) > ($1.item.pinnedAt ?? .distantPast) }
-        } else {
-            recentRows = recent.map(\.0)
-        }
-
+        sections = PanelSections.build(
+            history: history.rows, sensitive: vault.rows, ghosts: ghosts, filter: filter, query: query
+        )
         if resetSelection || selectedRow == nil {
-            selectedID = (recentRows.first ?? pinnedRows.first)?.id
+            selectedID = rows.first { !$0.row.isGhost }?.id
             scrollRequest += 1
+        }
+        if let expandedID, !rows.contains(where: { $0.id == expandedID }) {
+            self.expandedID = nil
         }
     }
 
     // MARK: Panel lifecycle
 
-    func panelWillOpen() {
+    func panelWillOpen(preserveState: Bool = false) {
         isOpen = true
-        query = ""
-        filter = .all
-        isKeyboardNavigating = true
-        lastNotice = nil
-        recompute(resetSelection: true)
+        if !preserveState {
+            query = ""
+            filter = .all
+            expandedID = nil
+            recompute(resetSelection: true)
+        }
+        modifierBits = ActionGrammar.Bits(modifierFlags: NSEvent.modifierFlags)
+        toast = nil
+        ghostsWereShown = !ghosts.isEmpty
         KeyboardShortcuts.disable(.togglePanel)
-        cycleState = .opening
+        cycleState = settings.cycleModeEnabled ? .opening : .idle
+        isCycling = false
     }
 
     func panelDidClose() {
         isOpen = false
         cycleState = .idle
+        isCycling = false
+        isClearConfirmationVisible = false
+        if ghostsWereShown {
+            ghosts.removeAll()
+            ghostsWereShown = false
+        }
         KeyboardShortcuts.enable(.togglePanel)
+    }
+
+    // MARK: Ghost rows
+
+    func addGhost(_ reason: GhostReason, at date: Date) {
+        ghosts.insert(ClipRow.ghost(reason: reason.message, at: date), at: 0)
+        if ghosts.count > 5 { ghosts.removeLast(ghosts.count - 5) }
+        settings.recordNotSaved(on: date)
+        recompute(resetSelection: false)
     }
 
     // MARK: Selection
 
     func select(id: UUID?, scroll: Bool = true) {
+        guard selectedID != id else { return }
         selectedID = id
+        if expandedID != nil, expandedID != id { expandedID = nil }
         if scroll { scrollRequest += 1 }
     }
 
-    func moveSelection(by delta: Int, wrap: Bool = false) {
-        guard !rows.isEmpty else { return }
-        isKeyboardNavigating = true
-        let current = selectedIndex ?? (delta > 0 ? -1 : rows.count)
-        var next = current + delta
-        if wrap {
-            next = (next + rows.count) % rows.count
-        } else {
-            next = min(max(next, 0), rows.count - 1)
-        }
-        select(id: rows[next].id)
+    func hoverSelect(id: UUID) {
+        guard hoverSelectsRows else { return }
+        select(id: id, scroll: false)
     }
 
-    func selectFirst() { isKeyboardNavigating = true; select(id: rows.first?.id) }
-    func selectLast() { isKeyboardNavigating = true; select(id: rows.last?.id) }
+    func moveSelection(by delta: Int, wrap: Bool = false) {
+        let selectable = rows.filter { !$0.row.isGhost }
+        guard !selectable.isEmpty else { return }
+        lastKeyPressAt = .now
+        let current = selectable.firstIndex { $0.id == selectedID } ?? (delta > 0 ? -1 : selectable.count)
+        var next = current + delta
+        if wrap {
+            next = (next + selectable.count) % selectable.count
+        } else {
+            next = min(max(next, 0), selectable.count - 1)
+        }
+        select(id: selectable[next].id)
+    }
+
+    func selectFirst() { lastKeyPressAt = .now; select(id: rows.first { !$0.row.isGhost }?.id) }
+    func selectLast() { lastKeyPressAt = .now; select(id: rows.last { !$0.row.isGhost }?.id) }
 
     // MARK: Actions
 
-    enum Action {
-        case primary, secondary, plain, plainSecondary
-    }
-
-    /// Enter → paste (or copy when pasting is disabled); ⌥Enter → the other one; ⇧ adds "as plain text".
-    func perform(_ action: Action, on item: ClipItem? = nil) {
-        guard let item = item ?? selectedItem else {
-            if !query.isEmpty {
+    /// Enter / click / ⌘n resolved through the grammar.
+    func perform(_ base: ActionGrammar.Base, bits: ActionGrammar.Bits, on id: UUID? = nil) {
+        let targetID = id ?? selectedID
+        guard let targetID, let clip = rows.first(where: { $0.id == targetID })?.row, !clip.isGhost else {
+            if !query.isEmpty, id == nil {
                 actions.copyText(query)
             }
             return
         }
-        let pasteByDefault = settings.pasteOnSelect
-        let plainByDefault = settings.plainTextByDefault
-        let (paste, plain): (Bool, Bool) = switch action {
-        case .primary: (pasteByDefault, plainByDefault)
-        case .secondary: (!pasteByDefault, plainByDefault)
-        case .plain: (pasteByDefault, !plainByDefault)
-        case .plainSecondary: (!pasteByDefault, !plainByDefault)
+        let action = ActionGrammar.resolve(base, bits, .init(accessibilityTrusted: accessibilityTrusted))
+        if !action.isPaste, bits.contains(.copyOnly) == false, !accessibilityTrusted {
+            settings.pasteBlockedByAccessibility = true
         }
-        actions.select(item, paste, plain)
+        actions.perform(clip, action)
+        if action.keepOpen, !action.isPaste {
+            showToast("Copied")
+        }
     }
 
     func deleteSelected() {
-        guard let item = selectedItem, let index = selectedIndex else { return }
+        guard let clip = selectedClip, let index = selectedIndex else { return }
         let nextID = rows[safe: index + 1]?.id ?? rows[safe: index - 1]?.id
-        history.delete(item)
+        if clip.isSensitive {
+            vault.remove(id: clip.id)
+            undoRecord = nil
+            recompute(resetSelection: false)
+            select(id: nextID)
+            return
+        }
+        undoRecord = history.delete(id: clip.id)
         recompute(resetSelection: false)
         select(id: nextID)
+        showToast("Deleted · ⌘Z to undo")
+    }
+
+    func undoDelete() {
+        guard let record = undoRecord else { return }
+        undoRecord = nil
+        let id = history.restore(record)
+        recompute(resetSelection: false)
+        select(id: id)
+        toast = nil
     }
 
     func togglePinSelected() {
-        guard let item = selectedItem else { return }
-        history.togglePin(item)
+        guard let clip = selectedClip, !clip.isSensitive, !clip.isGhost else { return }
+        history.togglePin(id: clip.id)
         recompute(resetSelection: false)
-        select(id: item.id)
+        select(id: clip.id)
+    }
+
+    func toggleExpanded() {
+        guard let clip = selectedClip, !clip.isSensitive, !clip.isGhost else { return }
+        expandedID = expandedID == clip.id ? nil : clip.id
+        scrollRequest += 1
     }
 
     func openSelected() {
-        guard let item = selectedItem else { return }
-        actions.open(item)
+        guard let clip = selectedClip, !clip.isGhost else { return }
+        actions.open(clip)
     }
 
-    func togglePreview() {
-        isPreviewVisible.toggle()
-        settings.showPreviewPane = isPreviewVisible
+    func revealSelected() {
+        guard let clip = selectedClip, clip.kind == .file else { return }
+        actions.reveal(clip)
+    }
+
+    func clearHistory(includingPinned: Bool) {
+        let removed = history.clear(includingPinned: includingPinned)
+        vault.removeAll()
+        isClearConfirmationVisible = false
+        recompute(resetSelection: true)
+        showToast("Cleared \(removed) clips")
+    }
+
+    func showToast(_ text: String) {
+        toast = text
+        toastTask?.cancel()
+        toastTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(4))
+            guard !Task.isCancelled else { return }
+            self?.toast = nil
+            self?.undoRecord = nil
+        }
     }
 
     func close() { actions.close() }
@@ -214,12 +291,14 @@ final class PanelModel {
     }
 
     private func handleFlagsChanged(_ event: NSEvent) -> Bool {
-        let released = event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting(.capsLock).isEmpty
-        guard released else { return false }
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting(.capsLock)
+        modifierBits = ActionGrammar.Bits(modifierFlags: flags)
+        guard flags.isEmpty else { return false }
         switch cycleState {
         case .cycling:
             cycleState = .idle
-            perform(.primary)
+            isCycling = false
+            perform(.returnKey, bits: [])
             return true
         case .opening:
             cycleState = .idle
@@ -232,16 +311,18 @@ final class PanelModel {
     private func handleKeyDown(_ event: NSEvent) -> Bool {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting([.capsLock, .numericPad, .function])
         let key = PanelKey(keyCode: event.keyCode, characters: event.charactersIgnoringModifiers ?? "")
+        lastKeyPressAt = .now
 
-        // While the Japanese/Chinese candidate window is open, arrows and Return belong to the IME.
-        if hasMarkedText(), [.up, .down, .return, .escape].contains(key.special) { return false }
+        // While the Japanese/Chinese candidate window is open, every key belongs to the IME.
+        if hasMarkedText() { return false }
 
-        // Hotkey pressed again while open: cycle to the next item (Maccy-style "hold and tap").
+        // Hotkey pressed again while open: cycle to the next item (hold the modifiers, tap the key).
         if let shortcut = KeyboardShortcuts.getShortcut(for: .togglePanel),
            shortcut.carbonKeyCode == Int(event.keyCode),
            shortcut.modifiers.intersection(.deviceIndependentFlagsMask) == flags {
             if cycleState == .opening || cycleState == .cycling {
                 cycleState = .cycling
+                isCycling = true
                 moveSelection(by: 1, wrap: true)
             } else {
                 close()
@@ -249,55 +330,67 @@ final class PanelModel {
             return true
         }
 
+        if isClearConfirmationVisible {
+            switch key.special {
+            case .escape: isClearConfirmationVisible = false; return true
+            case .return: clearHistory(includingPinned: flags.contains(.option)); return true
+            default: return true
+            }
+        }
+
         switch (key.special, flags) {
-        case (.escape, []):
-            if !query.isEmpty { query = "" } else { close() }
+        case (.escape, _):
+            if cycleState == .cycling { cycleState = .idle; isCycling = false }
+            close()
             return true
-        case (.return, []): perform(.primary); return true
-        case (.return, [.option]): perform(.secondary); return true
-        case (.return, [.shift]): perform(.plain); return true
-        case (.return, [.option, .shift]): perform(.plainSecondary); return true
-        case (.down, []), (.down, [.numericPad]): moveSelection(by: 1); return true
-        case (.up, []), (.up, [.numericPad]): moveSelection(by: -1); return true
+        case (.return, _):
+            perform(.returnKey, bits: ActionGrammar.Bits(modifierFlags: flags))
+            return true
+        case (.down, []): moveSelection(by: 1); return true
+        case (.up, []): moveSelection(by: -1); return true
         case (.down, [.command]), (.down, [.option]), (.end, _), (.pageDown, _): selectLast(); return true
         case (.up, [.command]), (.up, [.option]), (.home, _), (.pageUp, _): selectFirst(); return true
         case (.tab, []): filter = filter.next; return true
         case (.tab, [.shift]): filter = filter.previous; return true
+        case (.space, []) where query.isEmpty: toggleExpanded(); return true
         case (.delete, [.command]), (.forwardDelete, [.command]): deleteSelected(); return true
+        case (.delete, [.command, .shift]):
+            isClearConfirmationVisible = true
+            return true
+        case (.delete, [.command, .shift, .option]):
+            clearHistory(includingPinned: true)
+            return true
         default: break
         }
 
         guard flags.contains(.command) || flags.contains(.control) else { return false }
         let char = key.characters.lowercased()
 
-        if flags == [.command], let number = Int(char), (1...9).contains(number) {
-            if let row = recentRows[safe: number - 1] {
+        if flags.contains(.command), !flags.contains(.control), let number = Int(char), (1...9).contains(number) {
+            if let row = rows.first(where: { $0.number == number }) {
                 select(id: row.id)
-                perform(.primary, on: row.item)
+                perform(.number(number), bits: ActionGrammar.Bits(modifierFlags: flags), on: row.id)
             }
-            return true
-        }
-        if flags == [.command, .option], let number = Int(char), (1...9).contains(number) {
-            if let row = recentRows[safe: number - 1] { select(id: row.id); perform(.secondary, on: row.item) }
             return true
         }
 
         switch (char, flags) {
         case ("n", [.control]), ("j", [.control]): moveSelection(by: 1); return true
-        case ("p", [.control]), ("k", [.control]): moveSelection(by: -1); return true
+        case ("p", [.control]): moveSelection(by: -1); return true
+        case ("k", [.control]) where selectedIndex != 0: moveSelection(by: -1); return true
         case ("p", [.command]): togglePinSelected(); return true
-        case ("y", [.command]): togglePreview(); return true
+        case ("y", [.command]): toggleExpanded(); return true
         case ("o", [.command]): openSelected(); return true
-        case ("c", [.command]):
-            if let item = selectedItem { actions.select(item, false, settings.plainTextByDefault) }
-            return true
+        case ("r", [.command]): revealSelected(); return true
+        case ("c", [.command]): perform(.returnKey, bits: [.copyOnly]); return true
+        case ("z", [.command]): undoDelete(); return true
         case (",", [.command]): actions.openSettings(); return true
         case ("f", [.command]): actions.focusSearch(); return true
         case ("w", [.command]): close(); return true
+        case ("v", [.command]): return true  // people mash ⌘V inside the panel; swallow it
         case ("u", [.control]): query = ""; return true
-        case ("1"..."8", [.command, .shift]):
-            if let index = Int(char), let chip = PanelFilter.allCases[safe: index - 1] { filter = chip }
-            return true
+        case ("p", [.command, .shift]): actions.togglePause(); return true
+        case ("q", [.command]): NSApp.terminate(nil); return true
         default:
             return false
         }
@@ -311,27 +404,15 @@ final class PanelModel {
 
 /// Closures the coordinator plugs in so the model never touches AppKit windows directly.
 struct PanelActions {
-    var select: (ClipItem, _ paste: Bool, _ plainText: Bool) -> Void = { _, _, _ in }
+    var perform: (ClipRow, ActionGrammar.Action) -> Void = { _, _ in }
     var copyText: (String) -> Void = { _ in }
-    var open: (ClipItem) -> Void = { _ in }
+    var open: (ClipRow) -> Void = { _ in }
+    var reveal: (ClipRow) -> Void = { _ in }
     var openSettings: () -> Void = {}
     var focusSearch: () -> Void = {}
+    var togglePause: () -> Void = {}
+    var enablePasting: () -> Void = {}
     var close: () -> Void = {}
-}
-
-extension PanelActions {
-    @MainActor
-    init(coordinator: AppCoordinator) {
-        self.init()
-        select = { [unowned coordinator] item, paste, plain in coordinator.select(item, paste: paste, plainText: plain) }
-        copyText = { [unowned coordinator] text in
-            coordinator.panelController.close()
-            ClipboardWriter.write(string: text)
-        }
-        open = { item in ItemOpener.open(item) }
-        openSettings = { [unowned coordinator] in coordinator.openSettings() }
-        close = { [unowned coordinator] in coordinator.panelController.close() }
-    }
 }
 
 /// Key codes we care about, decoded once.

@@ -25,20 +25,22 @@ struct HistoryStoreTests {
         let store = try makeStore()
         store.ingest(textDraft("one"), now: Date(timeIntervalSince1970: 1))
         store.ingest(textDraft("two"), now: Date(timeIntervalSince1970: 2))
-        #expect(store.items.map(\.title) == ["two", "one"])
+        #expect(store.rows.map(\.title) == ["two", "one"])
     }
 
     @Test func duplicatesBumpInsteadOfInserting() throws {
         let store = try makeStore()
-        store.ingest(textDraft("same"), now: Date(timeIntervalSince1970: 1))
+        let first = store.ingest(textDraft("same"), now: Date(timeIntervalSince1970: 1))
         store.ingest(textDraft("other"), now: Date(timeIntervalSince1970: 2))
         let again = store.ingest(textDraft("same", app: "com.apple.Safari"), now: Date(timeIntervalSince1970: 3))
-        #expect(store.items.count == 2)
-        #expect(store.items.first?.id == again.id)
-        #expect(again.copyCount == 2)
-        #expect(again.sourceBundleID == "com.apple.Safari")
-        #expect(again.firstCopiedAt == Date(timeIntervalSince1970: 1))
-        #expect(again.lastCopiedAt == Date(timeIntervalSince1970: 3))
+        #expect(again == first)
+        #expect(store.rows.count == 2)
+        let row = try #require(store.row(id: again))
+        #expect(store.rows.first?.id == again)
+        #expect(row.copyCount == 2)
+        #expect(row.sourceBundleID == "com.apple.Safari")
+        #expect(row.firstCopiedAt == Date(timeIntervalSince1970: 1))
+        #expect(row.lastCopiedAt == Date(timeIntervalSince1970: 3))
     }
 
     @Test func limitDropsOldestUnpinned() throws {
@@ -47,42 +49,63 @@ struct HistoryStoreTests {
         for i in 0..<5 {
             store.ingest(textDraft("item \(i)"), now: Date(timeIntervalSince1970: TimeInterval(i)))
         }
-        #expect(store.items.map(\.title) == ["item 4", "item 3", "item 2"])
+        #expect(store.rows.map(\.title) == ["item 4", "item 3", "item 2"])
     }
 
     @Test func pinnedItemsSurviveLimitAndClear() throws {
         let store = try makeStore()
         store.maxItems = 2
         let keep = store.ingest(textDraft("keep"), now: Date(timeIntervalSince1970: 0))
-        store.togglePin(keep)
+        store.togglePin(id: keep)
         for i in 1...4 {
             store.ingest(textDraft("item \(i)"), now: Date(timeIntervalSince1970: TimeInterval(i)))
         }
-        #expect(store.items.contains { $0.id == keep.id })
-        #expect(store.unpinnedItems.count == 2)
+        #expect(store.rows.contains { $0.id == keep })
+        #expect(store.rows.filter { !$0.isPinned }.count == 2)
 
-        store.clear(includingPinned: false)
-        #expect(store.items.map(\.title) == ["keep"])
+        #expect(store.clear(includingPinned: false) == 2)
+        #expect(store.rows.map(\.title) == ["keep"])
         store.clear(includingPinned: true)
-        #expect(store.items.isEmpty)
+        #expect(store.rows.isEmpty)
     }
 
-    @Test func deleteAndPersistence() throws {
+    @Test func deleteUndoAndPersistence() throws {
         let store = try makeStore()
-        let a = store.ingest(textDraft("a"))
-        store.ingest(textDraft("b"))
-        store.delete(a)
-        #expect(store.items.map(\.title) == ["b"])
+        let a = store.ingest(textDraft("a"), now: Date(timeIntervalSince1970: 1))
+        store.togglePin(id: a, now: Date(timeIntervalSince1970: 5))
+        store.ingest(textDraft("b"), now: Date(timeIntervalSince1970: 2))
+        let record = try #require(store.delete(id: a))
+        #expect(store.rows.map(\.title) == ["b"])
         store.load()
-        #expect(store.items.map(\.title) == ["b"])
+        #expect(store.rows.map(\.title) == ["b"])
+
+        let restored = store.restore(record)
+        let row = try #require(store.row(id: restored))
+        #expect(row.title == "a")
+        #expect(row.isPinned)
+        #expect(row.firstCopiedAt == Date(timeIntervalSince1970: 1))
+        #expect(store.rows.map(\.title) == ["b", "a"])
     }
 
     @Test func touchMovesToTop() throws {
         let store = try makeStore()
         let a = store.ingest(textDraft("a"), now: Date(timeIntervalSince1970: 1))
         store.ingest(textDraft("b"), now: Date(timeIntervalSince1970: 2))
-        store.touch(a, now: Date(timeIntervalSince1970: 3))
-        #expect(store.items.first?.id == a.id)
-        #expect(a.copyCount == 2)
+        store.touch(id: a, now: Date(timeIntervalSince1970: 3))
+        #expect(store.rows.first?.id == a)
+        #expect(store.row(id: a)?.copyCount == 2)
+    }
+
+    @Test func expiryDropsOldUnpinnedOnly() throws {
+        let store = try makeStore()
+        store.expireAfterDays = 7
+        let now = Date(timeIntervalSince1970: 100 * 86_400)
+        let old = store.ingest(textDraft("old"), now: now.addingTimeInterval(-10 * 86_400))
+        let oldPinned = store.ingest(textDraft("old pinned"), now: now.addingTimeInterval(-10 * 86_400))
+        store.togglePin(id: oldPinned, now: now)
+        store.ingest(textDraft("fresh"), now: now.addingTimeInterval(-86_400))
+        store.expireOldItems(now: now)
+        #expect(store.row(id: old) == nil)
+        #expect(store.rows.map(\.title).sorted() == ["fresh", "old pinned"])
     }
 }

@@ -32,7 +32,7 @@ final class DebugBridge {
         case "close": coordinator.panelController.close()
         case "toggle": coordinator.togglePanel()
         case "seed": seedDemoData()
-        case "clear": coordinator.history.clear(includingPinned: true)
+        case "clear": coordinator.history.clear(includingPinned: true); coordinator.vault.removeAll()
         case "settings": coordinator.openSettings()
         case let cmd where cmd.hasPrefix("screenshot:"):
             screenshot(to: String(cmd.dropFirst("screenshot:".count)))
@@ -42,7 +42,11 @@ final class DebugBridge {
             if let filter = PanelFilter(rawValue: String(cmd.dropFirst("filter:".count))) { coordinator.model.filter = filter }
         case "down": coordinator.model.moveSelection(by: 1)
         case "up": coordinator.model.moveSelection(by: -1)
-        case "preview": coordinator.model.togglePreview()
+        case "preview": coordinator.model.toggleExpanded()
+        case "onboarding": coordinator.showOnboarding()
+        case "ghost": coordinator.model.addGhost(.concealed(appName: "1Password"), at: .now)
+        case "pause": coordinator.pauseCapture(until: .now.addingTimeInterval(1800))
+        case "resume": coordinator.resumeCapture()
         default: NSLog("DebugBridge: unknown command \(command)")
         }
     }
@@ -60,8 +64,10 @@ final class DebugBridge {
     func seedDemoData() {
         let history = coordinator.history
         func text(_ s: String, app: String) -> ClipDraft {
-            var draft = ClipClassifier.makeDraft(contents: [.init(type: PasteboardType.utf8PlainText, data: Data(s.utf8))])!
+            var draft = ClipClassifier.makeDraft(contents: [.init(type: PasteboardType.utf8PlainText, data: Data(s.utf8))], sourceBundleID: app)!
             draft.sourceBundleID = app
+            draft.sourceAppName = NSWorkspace.shared.urlForApplication(withBundleIdentifier: app)
+                .map { FileManager.default.displayName(atPath: $0.path).replacingOccurrences(of: ".app", with: "") }
             return draft
         }
         let samples: [ClipDraft] = [
@@ -88,6 +94,13 @@ final class DebugBridge {
             history.ingest(draft, now: time)
             time = time.addingTimeInterval(240)
         }
+        // Yesterday and earlier, for the section headers.
+        history.ingest(text("Yesterday's note: ship the README before the article.", app: "com.apple.Notes"), now: .now.addingTimeInterval(-86_400))
+        history.ingest(text("Three days ago: xcodegen generate && open Nori.xcodeproj", app: "com.apple.Terminal"), now: .now.addingTimeInterval(-3 * 86_400))
+        // A secret: masked, in memory only.
+        var secret = text("ghp_abcdefghijklmnopqrstuvwxyz0123456789ABCD", app: "com.apple.Safari")
+        secret.sourceAppName = "Safari"
+        coordinator.vault.add(SensitiveDraft(match: .gitHubToken, mask: SecretDetector.mask(secret.plainText ?? ""), draft: secret))
         if let image = NSImage(systemSymbolName: "photo.artframe", accessibilityDescription: nil)?
             .withSymbolConfiguration(.init(pointSize: 160, weight: .regular)),
            let tiff = image.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff),
@@ -100,7 +113,7 @@ final class DebugBridge {
         var fileDraft = ClipClassifier.makeDraft(contents: [.init(type: PasteboardType.fileURL, data: fileURL.dataRepresentation)])!
         fileDraft.sourceBundleID = "com.apple.finder"
         history.ingest(fileDraft, now: time.addingTimeInterval(60))
-        if let first = history.items.last { history.togglePin(first) }
+        if let last = history.rows.last { history.togglePin(id: last.id) }
     }
 }
 #endif

@@ -30,19 +30,28 @@ struct PasteboardSnapshot: Sendable, Equatable {
     var declaredTypes: Set<String>
     var items: [Item]
     var sourceBundleID: String?
+    var sourceAppName: String?
     var capturedAt: Date
 
-    init(changeCount: Int, declaredTypes: Set<String>, items: [Item], sourceBundleID: String?, capturedAt: Date = .now) {
+    init(
+        changeCount: Int,
+        declaredTypes: Set<String>,
+        items: [Item],
+        sourceBundleID: String?,
+        sourceAppName: String? = nil,
+        capturedAt: Date = .now
+    ) {
         self.changeCount = changeCount
         self.declaredTypes = declaredTypes
         self.items = items
         self.sourceBundleID = sourceBundleID
+        self.sourceAppName = sourceAppName
         self.capturedAt = capturedAt
     }
 
     /// Snapshot the general pasteboard. Must run on the main actor because `NSPasteboard` is not thread-safe.
     @MainActor
-    static func capture(from pasteboard: NSPasteboard = .general, sourceBundleID: String?) -> PasteboardSnapshot {
+    static func capture(from pasteboard: NSPasteboard = .general, source: NSRunningApplication?) -> PasteboardSnapshot {
         let items: [Item] = (pasteboard.pasteboardItems ?? []).map { item in
             Item(representations: item.types.map { ($0.rawValue, item.data(forType: $0)) })
         }
@@ -50,7 +59,8 @@ struct PasteboardSnapshot: Sendable, Equatable {
             changeCount: pasteboard.changeCount,
             declaredTypes: Set((pasteboard.types ?? []).map(\.rawValue)),
             items: items,
-            sourceBundleID: sourceBundleID
+            sourceBundleID: source?.bundleIdentifier,
+            sourceAppName: source?.localizedName
         )
     }
 

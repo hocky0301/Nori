@@ -6,12 +6,16 @@ import OSLog
 @MainActor
 final class ClipboardMonitor {
     enum Event: Sendable {
-        case captured(ClipDraft, changeCount: Int)
-        case rejected(CaptureRejection, changeCount: Int)
+        case captured(ClipDraft)
+        case sensitive(SensitiveDraft)
+        case ghost(GhostReason, at: Date)
+        case promoted(UUID)
+        case rejected(CaptureRejection)
     }
 
     var policy: CapturePolicy = .default
-    var isPaused = false
+    /// nil = running; `.distantFuture` = until resumed; otherwise resume automatically at that date.
+    var pausedUntil: Date?
     /// Skip exactly one upcoming change (for "copy something private, just this once").
     var skipNextChange = false
     var onEvent: ((Event) -> Void)?
@@ -19,11 +23,17 @@ final class ClipboardMonitor {
     private(set) var lastChangeCount: Int
     private var timer: Timer?
     private let pasteboard: NSPasteboard
+    private var activity: (any NSObjectProtocol)?
     private let logger = Logger(subsystem: "io.github.hocky0301.Nori", category: "monitor")
 
     init(pasteboard: NSPasteboard = .general) {
         self.pasteboard = pasteboard
         lastChangeCount = pasteboard.changeCount
+    }
+
+    var isPaused: Bool {
+        guard let pausedUntil else { return false }
+        return pausedUntil > .now
     }
 
     func start(interval: TimeInterval) {
@@ -34,6 +44,10 @@ final class ClipboardMonitor {
         timer.tolerance = interval / 4
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
+        if activity == nil {
+            // Without this App Nap coalesces the timer to once every few seconds after a few idle minutes.
+            activity = ProcessInfo.processInfo.beginActivity(options: [.background], reason: "Clipboard monitoring")
+        }
     }
 
     func stop() {
@@ -46,13 +60,13 @@ final class ClipboardMonitor {
         lastChangeCount = pasteboard.changeCount
     }
 
+    /// Check now (also called when the panel opens so a copy made a moment ago is never missing).
     func poll() {
         let changeCount = pasteboard.changeCount
         guard changeCount != lastChangeCount else { return }
         lastChangeCount = changeCount
 
-        let source = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
-        let snapshot = PasteboardSnapshot.capture(from: pasteboard, sourceBundleID: source)
+        let snapshot = PasteboardSnapshot.capture(from: pasteboard, source: NSWorkspace.shared.frontmostApplication)
 
         if skipNextChange, !snapshot.hasNoriMarker {
             skipNextChange = false
@@ -63,13 +77,29 @@ final class ClipboardMonitor {
             return
         }
 
-        switch ClipClassifier.classify(snapshot, policy: policy) {
+        let policy = self.policy
+        Task.detached(priority: .userInitiated) { [weak self] in
+            let outcome = ClipClassifier.classify(snapshot, policy: policy)
+            await self?.deliver(outcome, capturedAt: snapshot.capturedAt)
+        }
+    }
+
+    private func deliver(_ outcome: CaptureOutcome, capturedAt: Date) {
+        switch outcome {
         case let .captured(draft):
-            logger.info("captured \(draft.kind.rawValue, privacy: .public) (\(draft.byteCount) bytes) from \(source ?? "?", privacy: .public)")
-            onEvent?(.captured(draft, changeCount: changeCount))
+            logger.info("captured \(draft.kind.rawValue, privacy: .public) (\(draft.byteCount) bytes)")
+            onEvent?(.captured(draft))
+        case let .sensitive(sensitive):
+            logger.info("sensitive \(sensitive.match.rawValue, privacy: .public) kept in memory")
+            onEvent?(.sensitive(sensitive))
+        case let .ghost(reason):
+            logger.info("ghost: \(reason.message, privacy: .public)")
+            onEvent?(.ghost(reason, at: capturedAt))
+        case let .rejected(.fromNori(id)):
+            if let id { onEvent?(.promoted(id)) }
         case let .rejected(reason):
             logger.debug("rejected: \(String(describing: reason), privacy: .public)")
-            onEvent?(.rejected(reason, changeCount: changeCount))
+            onEvent?(.rejected(reason))
         }
     }
 }

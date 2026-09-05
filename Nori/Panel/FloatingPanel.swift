@@ -10,7 +10,7 @@ final class FloatingPanel: NSPanel {
     init(contentRect: NSRect) {
         super.init(
             contentRect: contentRect,
-            styleMask: [.nonactivatingPanel, .borderless, .resizable, .fullSizeContentView],
+            styleMask: [.nonactivatingPanel, .borderless, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
@@ -20,13 +20,13 @@ final class FloatingPanel: NSPanel {
         collectionBehavior = [.auxiliary, .stationary, .moveToActiveSpace, .fullScreenAuxiliary, .ignoresCycle]
         titleVisibility = .hidden
         titlebarAppearsTransparent = true
-        isMovableByWindowBackground = true
+        isMovable = false
+        isMovableByWindowBackground = false
         hidesOnDeactivate = false
         animationBehavior = .none
         backgroundColor = .clear
         isOpaque = false
         hasShadow = true
-        minSize = NSSize(width: 420, height: 320)
         isReleasedWhenClosed = false
     }
 
@@ -35,12 +35,10 @@ final class FloatingPanel: NSPanel {
 
     override func resignKey() {
         super.resignKey()
-        Logger(subsystem: "io.github.hocky0301.Nori", category: "panel")
-            .notice("resignKey; new key=\(String(describing: NSApp.keyWindow), privacy: .public) active=\(NSApp.isActive) front=\(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "?", privacy: .public) event=\(String(describing: NSApp.currentEvent?.type.rawValue), privacy: .public)")
         onResignKey?()
     }
 
-    /// Escape and ⌘W are routed here by AppKit when no responder handled them.
+    /// Escape and ⌘. are routed here by AppKit when no responder handled them.
     override func cancelOperation(_ sender: Any?) {
         onResignKey?()
     }

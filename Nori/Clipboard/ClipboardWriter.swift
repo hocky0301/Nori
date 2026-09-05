@@ -5,39 +5,43 @@ import AppKit
 enum ClipboardWriter {
     /// Restore every stored representation (or only plain text) and tag the change as Nori's own.
     @discardableResult
-    static func write(_ item: ClipItem, plainTextOnly: Bool, to pasteboard: NSPasteboard = .general) -> Int {
+    static func write(
+        contents: [ClipDraft.Content],
+        id: UUID,
+        sourceBundleID: String?,
+        plainTextOnly: Bool,
+        to pasteboard: NSPasteboard = .general
+    ) -> Int {
         pasteboard.clearContents()
 
-        var contents = item.contents.map { ($0.type, $0.data) }
-        if plainTextOnly {
-            if let text = item.plainText {
-                contents = [(PasteboardType.utf8PlainText, Data(text.utf8))]
-            }
-            // Keep file URLs: "plain" files are still files.
-            contents += item.contents.filter { $0.type == PasteboardType.fileURL }.map { ($0.type, $0.data) }
+        var contents = contents
+        if plainTextOnly, let plain = contents.first(where: { $0.type == PasteboardType.utf8PlainText }) {
+            // "Plain" files are still files (Maccy #962).
+            contents = [plain] + contents.filter { $0.type == PasteboardType.fileURL }
         }
 
-        // File URLs must go through writeObjects so multi-file drags/pastes work in Finder.
+        // File URLs must go through writeObjects so multi-file pastes work in Finder.
         let fileItems: [NSPasteboardItem] = contents
-            .filter { $0.0 == PasteboardType.fileURL }
-            .map { type, data in
+            .filter { $0.type == PasteboardType.fileURL }
+            .map { content in
                 let pasteItem = NSPasteboardItem()
-                pasteItem.setData(data, forType: NSPasteboard.PasteboardType(type))
+                pasteItem.setData(content.data, forType: NSPasteboard.PasteboardType(content.type))
                 return pasteItem
             }
         if !fileItems.isEmpty {
             pasteboard.writeObjects(fileItems)
         }
-        for (type, data) in contents where type != PasteboardType.fileURL {
-            pasteboard.setData(data, forType: NSPasteboard.PasteboardType(type))
+        for content in contents where content.type != PasteboardType.fileURL {
+            pasteboard.setData(content.data, forType: NSPasteboard.PasteboardType(content.type))
         }
 
-        pasteboard.setString(item.id.uuidString, forType: NSPasteboard.PasteboardType(PasteboardType.noriItem))
-        pasteboard.setString(Bundle.main.bundleIdentifier ?? "Nori", forType: NSPasteboard.PasteboardType(PasteboardType.source))
+        pasteboard.setString(id.uuidString, forType: NSPasteboard.PasteboardType(PasteboardType.noriItem))
+        pasteboard.setString(sourceBundleID ?? Bundle.main.bundleIdentifier ?? "Nori",
+                             forType: NSPasteboard.PasteboardType(PasteboardType.source))
         return pasteboard.changeCount
     }
 
-    /// Put an arbitrary string on the pasteboard (used for "copy search text" and quick actions).
+    /// Put typed search text on the pasteboard as a brand-new plain-text clip.
     @discardableResult
     static func write(string: String, to pasteboard: NSPasteboard = .general) -> Int {
         pasteboard.clearContents()

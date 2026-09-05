@@ -9,11 +9,13 @@ struct ClipClassifierTests {
         _ items: [[(String, Data?)]],
         declared: Set<String>? = nil,
         app: String? = "com.apple.TextEdit",
+        appName: String? = "TextEdit",
         changeCount: Int = 1
     ) -> PasteboardSnapshot {
         let built = items.map { PasteboardSnapshot.Item(representations: $0.map { ($0.0, $0.1) }) }
         let declaredTypes = declared ?? Set(built.flatMap(\.types))
-        return PasteboardSnapshot(changeCount: changeCount, declaredTypes: declaredTypes, items: built, sourceBundleID: app)
+        return PasteboardSnapshot(changeCount: changeCount, declaredTypes: declaredTypes, items: built,
+                                  sourceBundleID: app, sourceAppName: appName)
     }
 
     private func text(_ string: String) -> (String, Data?) {
@@ -34,9 +36,11 @@ struct ClipClassifierTests {
         #expect(draft.title == "Hello, Nori!")
         #expect(draft.searchText == "  Hello, Nori!\n")
         #expect(draft.characterCount == 15)
-        #expect(draft.lineCount == 2)
+        #expect(draft.lineCount == 1)
         #expect(draft.sourceBundleID == "com.apple.TextEdit")
+        #expect(draft.sourceAppName == "TextEdit")
         #expect(draft.contents.count == 1)
+        #expect(!draft.isRichText)
     }
 
     @Test func link() throws {
@@ -57,30 +61,50 @@ struct ClipClassifierTests {
         #expect(draft.kind == .code)
     }
 
-    @Test func richTextWithFormatting() throws {
+    @Test func codeFromEditorNeedsLessEvidence() throws {
+        let source = "let a = 1\nlet b = 2\n"
+        #expect(try draft(ClipClassifier.classify(snapshot([[text(source)]], app: "com.apple.dt.Xcode"))).kind == .code)
+        #expect(try draft(ClipClassifier.classify(snapshot([[text(source)]], app: "com.apple.Notes"))).kind == .text)
+    }
+
+    @Test func richTextIsAFlagOnText() throws {
         let attributed = NSMutableAttributedString(string: "Bold and plain")
         attributed.addAttribute(.font, value: NSFont.boldSystemFont(ofSize: 12), range: NSRange(location: 0, length: 4))
         let rtf = try #require(attributed.rtf(from: NSRange(location: 0, length: attributed.length), documentAttributes: [:]))
         let draft = try draft(ClipClassifier.classify(snapshot([[text("Bold and plain"), (PasteboardType.rtf, rtf)]])))
-        #expect(draft.kind == .richText)
+        #expect(draft.kind == .text)
+        #expect(draft.isRichText)
         #expect(draft.title == "Bold and plain")
         #expect(draft.contents.map(\.type) == [PasteboardType.utf8PlainText, PasteboardType.rtf])
     }
 
-    @Test func uniformRTFIsPlainText() throws {
+    @Test func uniformRTFIsNotRich() throws {
         let attributed = NSAttributedString(string: "just text", attributes: [.font: NSFont.systemFont(ofSize: 12)])
         let rtf = try #require(attributed.rtf(from: NSRange(location: 0, length: attributed.length), documentAttributes: [:]))
         let draft = try draft(ClipClassifier.classify(snapshot([[text("just text"), (PasteboardType.rtf, rtf)]])))
-        #expect(draft.kind == .text)
+        #expect(!draft.isRichText)
     }
 
-    @Test func image() throws {
-        let png = try #require(TestImages.png(width: 12, height: 7))
-        let draft = try draft(ClipClassifier.classify(snapshot([[(PasteboardType.png, png), text("alt text")]])))
+    @Test func imageKeepsPNGOnlyAndThumbnail() throws {
+        let png = try #require(TestImages.png(width: 300, height: 120))
+        let tiff = try #require(NSImage(data: png)?.tiffRepresentation)
+        let draft = try draft(ClipClassifier.classify(snapshot([[(PasteboardType.tiff, tiff), (PasteboardType.png, png), text("alt text")]])))
         #expect(draft.kind == .image)
-        #expect(draft.imagePixelSize == CGSize(width: 12, height: 7))
-        #expect(draft.title == "Image 12×7")
+        #expect(draft.imagePixelSize == CGSize(width: 300, height: 120))
+        #expect(draft.title == "Image 300×120")
         #expect(draft.searchText == "alt text")
+        #expect(draft.contents.map(\.type) == [PasteboardType.png, PasteboardType.utf8PlainText])
+        let thumbnail = try #require(draft.thumbnail)
+        let size = try #require(ImageNormalizer.pixelSize(of: thumbnail))
+        #expect(size.width <= 224 && size.height <= 224)
+    }
+
+    @Test func tiffOnlyIsTranscodedToPNG() throws {
+        let png = try #require(TestImages.png(width: 40, height: 30))
+        let tiff = try #require(NSImage(data: png)?.tiffRepresentation)
+        let draft = try draft(ClipClassifier.classify(snapshot([[(PasteboardType.tiff, tiff)]])))
+        #expect(draft.contents.map(\.type) == [PasteboardType.png])
+        #expect(draft.imagePixelSize == CGSize(width: 40, height: 30))
     }
 
     @Test func files() throws {
@@ -112,15 +136,15 @@ struct ClipClassifierTests {
         #expect(ClipClassifier.classify(snapshot([[(PasteboardType.utf8PlainText, nil)]])) == .rejected(.nothingToStore))
     }
 
-    @Test func concealedIsRejectedEvenWhenOnlyDeclared() {
-        let snap = snapshot([[text("hunter2")]], declared: [PasteboardType.utf8PlainText, PasteboardType.concealed])
-        #expect(ClipClassifier.classify(snap) == .rejected(.privateOrTransient(PasteboardType.concealed)))
+    @Test func concealedLeavesAGhostEvenWhenOnlyDeclared() {
+        let snap = snapshot([[text("hunter2")]], declared: [PasteboardType.utf8PlainText, PasteboardType.concealed], appName: "1Password")
+        #expect(ClipClassifier.classify(snap) == .ghost(.concealed(appName: "1Password")))
     }
 
-    @Test func transientAndAutoGeneratedAreRejected() {
+    @Test func transientAndAutoGeneratedAreIgnored() {
         for type in [PasteboardType.transient, PasteboardType.autoGenerated] {
             let snap = snapshot([[text("x"), (type, Data())]])
-            #expect(ClipClassifier.classify(snap) == .rejected(.privateOrTransient(type)))
+            #expect(ClipClassifier.classify(snap) == .rejected(.ephemeral(type)))
         }
     }
 
@@ -129,22 +153,16 @@ struct ClipClassifierTests {
         #expect(ClipClassifier.classify(snap) == .rejected(.ignoredType("com.agilebits.onepassword")))
     }
 
-    @Test func ignoredApps() {
-        var policy = CapturePolicy()
-        policy.ignoredApps = ["com.apple.keychainaccess"]
+    @Test func ignoredAppsIncludePasswordManagersByDefault() {
         let snap = snapshot([[text("pw")]], app: "com.apple.keychainaccess")
-        #expect(ClipClassifier.classify(snap, policy: policy) == .rejected(.ignoredApp("com.apple.keychainaccess")))
-
-        policy.recordOnlyListedApps = true
-        #expect(ClipClassifier.classify(snapshot([[text("ok")]], app: "com.apple.keychainaccess"), policy: policy) != .rejected(.ignoredApp("com.apple.keychainaccess")))
-        #expect(ClipClassifier.classify(snapshot([[text("no")]], app: "com.apple.Safari"), policy: policy) == .rejected(.ignoredApp("com.apple.Safari")))
+        #expect(ClipClassifier.classify(snap) == .rejected(.ignoredApp("com.apple.keychainaccess")))
     }
 
     @Test func ignoreRegexp() {
         var policy = CapturePolicy()
-        policy.ignoreRegexps = ["^sk-[A-Za-z0-9]{10,}$"]
-        #expect(ClipClassifier.classify(snapshot([[text("sk-abcdefghijklmnop")]]), policy: policy) == .rejected(.matchedIgnoreRegexp))
-        #expect(ClipClassifier.classify(snapshot([[text("sk-short")]]), policy: policy) != .rejected(.matchedIgnoreRegexp))
+        policy.ignoreRegexps = ["^order-[0-9]{6}$"]
+        #expect(ClipClassifier.classify(snapshot([[text("order-123456")]]), policy: policy) == .rejected(.matchedIgnoreRegexp))
+        #expect(ClipClassifier.classify(snapshot([[text("order-12")]]), policy: policy) != .rejected(.matchedIgnoreRegexp))
     }
 
     @Test func fromNoriIsRejectedWithID() {
@@ -178,24 +196,59 @@ struct ClipClassifierTests {
         #expect(draft.contents.contains { $0.type == PasteboardType.rtf })
     }
 
-    @Test func policyCanDisableImagesFilesAndRichText() throws {
+    @Test func policyCanDisableImagesFilesAndText() throws {
         var policy = CapturePolicy()
         policy.captureImages = false
         policy.captureFiles = false
-        policy.captureRichText = false
         let png = try #require(TestImages.png(width: 2, height: 2))
         let snap = snapshot([[(PasteboardType.png, png), (PasteboardType.rtf, Data([1])), text("caption")]])
         let draft = try draft(ClipClassifier.classify(snap, policy: policy))
         #expect(draft.kind == .text)
+        #expect(draft.contents.map(\.type) == [PasteboardType.rtf, PasteboardType.utf8PlainText])
+
+        policy.captureText = false
+        #expect(ClipClassifier.classify(snapshot([[text("caption")]]), policy: policy) == .rejected(.nothingToStore))
+    }
+
+    @Test func oversizedImageLeavesAGhost() throws {
+        var policy = CapturePolicy()
+        policy.maxImageBytes = 4
+        let png = try #require(TestImages.png(width: 2, height: 2))
+        let outcome = ClipClassifier.classify(snapshot([[(PasteboardType.png, png), text("alt")]]), policy: policy)
+        #expect(outcome == .ghost(.imageTooLarge(bytes: png.count)))
+    }
+
+    @Test func oversizedOtherRepresentationIsDroppedButClipKept() throws {
+        var policy = CapturePolicy()
+        policy.maxOtherRepresentationBytes = 4
+        let snap = snapshot([[text("tiny"), ("com.apple.WebKit.custom-pasteboard-data", Data(repeating: 0, count: 10)), ("com.example.big", Data(repeating: 0, count: 10))]])
+        let draft = try draft(ClipClassifier.classify(snap, policy: policy))
         #expect(draft.contents.map(\.type) == [PasteboardType.utf8PlainText])
     }
 
-    @Test func oversizedRepresentationsAreDropped() throws {
+    @Test func hugeTextIsTruncated() throws {
         var policy = CapturePolicy()
-        policy.maxRepresentationBytes = 4
-        let snap = snapshot([[text("tiny"), (PasteboardType.tiff, Data(repeating: 0, count: 10))]])
+        policy.maxTextBytes = 16
+        let snap = snapshot([[text(String(repeating: "a", count: 100)), (PasteboardType.rtf, Data([1]))]])
         let draft = try draft(ClipClassifier.classify(snap, policy: policy))
+        #expect(draft.isTruncated)
+        #expect(draft.characterCount == 16)
         #expect(draft.contents.map(\.type) == [PasteboardType.utf8PlainText])
+    }
+
+    @Test func secretsGoToTheVault() throws {
+        let outcome = ClipClassifier.classify(snapshot([[text("AKIAIOSFODNN7EXAMPLE")]]))
+        guard case let .sensitive(sensitive) = outcome else {
+            Issue.record("expected sensitive, got \(outcome)")
+            return
+        }
+        #expect(sensitive.match == .awsAccessKey)
+        #expect(sensitive.mask.hasSuffix("MPLE"))
+        #expect(!sensitive.mask.contains("AKIA"))
+
+        var policy = CapturePolicy()
+        policy.maskSensitive = false
+        #expect(try draft(ClipClassifier.classify(snapshot([[text("AKIAIOSFODNN7EXAMPLE")]]), policy: policy)).kind == .text)
     }
 
     @Test func hashIgnoresCustomTypesButNotContent() {
@@ -207,10 +260,14 @@ struct ClipClassifierTests {
         #expect(ClipClassifier.contentHash(of: a) != ClipClassifier.contentHash(of: c))
     }
 
-    @Test func universalClipboardIsFlagged() throws {
+    @Test func universalClipboardIsFlaggedAndCanBeDisabled() throws {
         let snap = snapshot([[text("from iPhone")]], declared: [PasteboardType.utf8PlainText, PasteboardType.universalClipboard])
         let draft = try draft(ClipClassifier.classify(snap))
         #expect(draft.isFromUniversalClipboard)
+        #expect(draft.sourceAppName == "iPhone or iPad")
+        var policy = CapturePolicy()
+        policy.captureUniversalClipboard = false
+        #expect(ClipClassifier.classify(snap, policy: policy) == .rejected(.universalClipboardDisabled))
     }
 
     @Test func longTextIsTruncatedForTitleAndSearch() throws {

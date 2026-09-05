@@ -89,57 +89,52 @@ enum KindDetector {
     }
 
     private static let codeLineStarts: [String] = [
-        "import ", "from ", "#include", "#!/", "func ", "fn ", "def ", "class ", "struct ", "enum ", "interface ",
-        "public ", "private ", "protected ", "static ", "export ", "const ", "let ", "var ", "return ", "if (", "if(",
-        "for (", "for(", "while (", "while(", "switch ", "case ", "package ", "using ", "namespace ", "<?php", "#!",
-        "@Override", "@main", "SELECT ", "INSERT ", "UPDATE ", "DELETE ", "CREATE ", "$ ", "npm ", "brew ", "git ",
-        "curl ", "docker ", "kubectl ", "xcodebuild ", "cd ", "sudo ", "pip ", "cargo ", "go ", "swift ",
-        "<!DOCTYPE", "<html", "<div", "<svg", "<?xml",
+        "$ ", "#!/", "import ", "from ", "func ", "def ", "class ", "struct ", "const ", "let ", "var ", "fn ",
+        "package ", "use ", "#include", "SELECT ", "<?xml", "<!DOCTYPE", "enum ", "interface ", "public ", "private ",
+        "export ", "@main", "<?php", "using ", "namespace ", "<html", "<div", "<svg",
     ]
 
-    /// Conservative code detection: needs at least two lines and two independent signals,
-    /// so prose with a stray semicolon stays "text".
-    static func looksLikeCode(_ text: String) -> Bool {
-        let lines = text.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline)
-            .map { String($0) }
+    /// Apps whose copies are usually code.
+    static let editorBundlePrefixes: [String] = [
+        "com.apple.dt.Xcode", "com.microsoft.VSCode", "com.todesktop.230313mzl4w4u92", "dev.zed.Zed",
+        "com.jetbrains.", "com.apple.Terminal", "com.googlecode.iterm2", "dev.warp.Warp-Stable",
+        "com.mitchellh.ghostty", "com.sublimetext.", "org.vim.", "com.neovide.", "com.github.atom",
+    ]
+
+    /// Conservative code detection: needs at least two lines and a score of 3 from independent
+    /// signals, so prose with a stray semicolon stays "text".
+    static func looksLikeCode(_ text: String, sourceBundleID: String? = nil, isRichText: Bool = false) -> Bool {
+        let lines = text.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline).map { String($0) }
         let nonEmpty = lines.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
         guard nonEmpty.count >= 2 else { return isSingleLineCommand(text) }
 
-        var signals = 0
+        var score = 0
+
+        if let sourceBundleID, editorBundlePrefixes.contains(where: { sourceBundleID.hasPrefix($0) }) { score += 2 }
 
         let indented = nonEmpty.filter { $0.hasPrefix("  ") || $0.hasPrefix("\t") }.count
-        if Double(indented) / Double(nonEmpty.count) >= 0.3 { signals += 1 }
+        if Double(indented) / Double(nonEmpty.count) >= 0.3 { score += 2 }
+
+        let symbolCount = text.filter { "{}();=<>".contains($0) }.count
+        if Double(symbolCount) >= 1.5 * Double(nonEmpty.count) { score += 1 }
+
+        if let first = nonEmpty.first?.trimmingCharacters(in: .whitespaces),
+           codeLineStarts.contains(where: { first.hasPrefix($0) }) { score += 1 }
 
         let punctuationEndings = nonEmpty.filter { line in
             let trimmed = line.trimmingCharacters(in: .whitespaces)
-            return trimmed.hasSuffix(";") || trimmed.hasSuffix("{") || trimmed == "}" || trimmed.hasSuffix("};")
-                || trimmed.hasSuffix(") {") || trimmed.hasSuffix("=> {") || trimmed.hasSuffix(":") && trimmed.contains("(")
+            return trimmed.hasSuffix(";") || trimmed.hasSuffix("{")
         }.count
-        if punctuationEndings >= 2 { signals += 1 }
+        if punctuationEndings >= 2 { score += 1 }
 
-        let keywordLines = nonEmpty.filter { line in
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            return codeLineStarts.contains { trimmed.hasPrefix($0) }
-        }.count
-        if keywordLines >= 1 { signals += 1 }
-        if keywordLines >= 3 { signals += 1 }
+        if isRichText { score -= 2 }
 
-        let operators = ["=>", "->", "::", "==", "!=", "&&", "||", "+=", "</", "/>", "</"]
-        if operators.contains(where: { text.contains($0) }) { signals += 1 }
-
-        let brackets = text.filter { "{}[]()".contains($0) }.count
-        if brackets >= 4 { signals += 1 }
-
-        // Prose signal: long sentences with spaces and few symbols.
-        let averageWords = Double(nonEmpty.map { $0.split(separator: " ").count }.reduce(0, +)) / Double(nonEmpty.count)
-        if averageWords > 12, brackets < 4 { signals -= 1 }
-
-        return signals >= 2
+        return score >= 3
     }
 
     private static func isSingleLineCommand(_ text: String) -> Bool {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.count <= 300 else { return false }
+        guard trimmed.count <= 300, !trimmed.contains(where: \.isNewline) else { return false }
         let shellStarts = ["$ ", "npm ", "npx ", "brew ", "git ", "curl ", "docker ", "kubectl ", "xcodebuild ", "sudo ",
                            "pip ", "pip3 ", "cargo ", "go ", "swift ", "python ", "python3 ", "node ", "make ", "cd ",
                            "ls ", "rm ", "cp ", "mv ", "chmod ", "ssh ", "scp ", "tar ", "zip ", "open ", "defaults "]
