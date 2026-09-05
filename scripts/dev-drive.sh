@@ -42,7 +42,7 @@ case "$1" in
     PID=$(cat "$PIDFILE" 2>/dev/null || echo 0)
     WID=$(swift -e "import AppKit
     let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] ?? []
-    var best = (0, ${3:-largest} == \"smallest\" ? Double.greatestFiniteMagnitude : 0.0)
+    var best = (0, \"${3:-largest}\" == \"smallest\" ? Double.greatestFiniteMagnitude : 0.0)
     for w in list where (w[\"kCGWindowOwnerPID\"] as? NSNumber)?.intValue == $PID {
       let b = w[\"kCGWindowBounds\"] as? [String: Any] ?? [:]
       let area = ((b[\"Width\"] as? NSNumber)?.doubleValue ?? 0) * ((b[\"Height\"] as? NSNumber)?.doubleValue ?? 0)
@@ -57,5 +57,5 @@ case "$1" in
   log)
     log show --predicate 'subsystem == "io.github.hocky0301.Nori"' --last "${2:-2m}" --info --debug --style compact 2>/dev/null | grep -v Filtering | tail -${3:-40}
     ;;
-  *) echo "usage: nori.sh launch [--seed-demo] | kill | cmd <open|open-center|close|toggle|seed|clear|settings|onboarding|ghost|pause|resume|query:TEXT|filter:NAME|down|up|preview|screenshot:PATH> | windows | shot out.png [largest|smallest] | log [2m] [40]" ;;
+  *) echo "usage: nori.sh launch [--seed-demo] | kill | cmd <open|open-center|close|toggle|seed|clear|settings|settings:TAB|onboarding|onboarding:N|ghost|pause|resume|query:TEXT|filter:NAME|down|up|preview|screenshot:PATH> | windows | shot out.png [largest|smallest] | log [2m] [40]" ;;
 esac

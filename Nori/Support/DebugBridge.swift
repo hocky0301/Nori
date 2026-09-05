@@ -5,7 +5,7 @@ import Foundation
 /// Lets scripts drive the app during development:
 ///   `notifyutil` cannot carry payloads, so we use DistributedNotificationCenter:
 ///   swift -e 'import Foundation; DistributedNotificationCenter.default().postNotificationName(.init("io.github.hocky0301.Nori.debug"), object: "open", userInfo: nil, deliverImmediately: true)'
-/// Commands: open, close, toggle, seed, clear, screenshot:<path>
+/// Commands: open, close, toggle, seed, clear, screenshot:<path>, settings:<tab>, onboarding:<1|2|3>
 @MainActor
 final class DebugBridge {
     /// `--debug-channel=NAME` isolates parallel dev instances (each listens on its own name).
@@ -49,6 +49,10 @@ final class DebugBridge {
         case "up": coordinator.model.moveSelection(by: -1)
         case "preview": coordinator.model.toggleExpanded()
         case "onboarding": coordinator.showOnboarding()
+        case let cmd where cmd.hasPrefix("onboarding:"):
+            if let step = Int(cmd.dropFirst("onboarding:".count)) { coordinator.showOnboarding(step: step) }
+        case let cmd where cmd.hasPrefix("settings:"):
+            if let tab = SettingsTab(rawValue: String(cmd.dropFirst("settings:".count))) { coordinator.openSettings(tab: tab) }
         case "ghost": coordinator.model.addGhost(.concealed(appName: "1Password"), at: .now)
         case "pause": coordinator.pauseCapture(until: .now.addingTimeInterval(1800))
         case "resume": coordinator.resumeCapture()
