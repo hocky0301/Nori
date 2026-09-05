@@ -1,0 +1,56 @@
+#!/bin/zsh
+# Dev driver for Nori: launch/kill a debug build, send debug commands, capture the panel.
+# Env: NORI_DD (derived data dir with Build/Products/Debug/Nori.app), NORI_CHANNEL (isolates instances).
+set -e
+SCRATCH=${NORI_SCRATCH:-/private/tmp/claude-501/-Users-kamil-Documents-10-Build-MACOPY/8140ed08-38f8-4666-adde-5ffe74d5235c/scratchpad}
+DD=${NORI_DD:-$SCRATCH/DerivedData}
+CHANNEL=${NORI_CHANNEL:-}
+APP=$DD/Build/Products/Debug/Nori.app
+PIDFILE=$DD/nori.pid
+NOTE="io.github.hocky0301.Nori.debug${CHANNEL:+.$CHANNEL}"
+
+post() {
+  swift -e "import Foundation; DistributedNotificationCenter.default().postNotificationName(Notification.Name(\"$NOTE\"), object: \"$1\", userInfo: nil, deliverImmediately: true)" 2>/dev/null
+}
+
+case "$1" in
+  launch)
+    if [ -f "$PIDFILE" ]; then kill "$(cat "$PIDFILE")" 2>/dev/null || true; rm -f "$PIDFILE"; fi
+    shift
+    "$APP/Contents/MacOS/Nori" --in-memory ${CHANNEL:+--debug-channel=$CHANNEL} "$@" >/dev/null 2>&1 &
+    echo $! > "$PIDFILE"
+    sleep 1.5
+    kill -0 "$(cat "$PIDFILE")" 2>/dev/null && echo "Nori running (pid $(cat "$PIDFILE"), channel '${CHANNEL:-default}')" || { echo "Nori failed to start"; exit 1; }
+    ;;
+  kill) [ -f "$PIDFILE" ] && { kill "$(cat "$PIDFILE")" 2>/dev/null || true; rm -f "$PIDFILE"; }; echo killed ;;
+  cmd) post "$2" ;;
+  windows)
+    PID=$(cat "$PIDFILE" 2>/dev/null || echo 0)
+    swift -e "import AppKit
+    let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] ?? []
+    for w in list where (w[\"kCGWindowOwnerPID\"] as? NSNumber)?.intValue == $PID {
+      print((w[\"kCGWindowNumber\"] as? NSNumber)?.intValue ?? 0, w[\"kCGWindowLayer\"] ?? \"?\", w[\"kCGWindowBounds\"] ?? \"?\")
+    }" 2>/dev/null
+    ;;
+  shot)
+    # $2 = output png [$3 = 'largest' (default) | 'smallest']. Captures this instance's on-screen window.
+    PID=$(cat "$PIDFILE" 2>/dev/null || echo 0)
+    WID=$(swift -e "import AppKit
+    let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] ?? []
+    var best = (0, ${3:-largest} == \"smallest\" ? Double.greatestFiniteMagnitude : 0.0)
+    for w in list where (w[\"kCGWindowOwnerPID\"] as? NSNumber)?.intValue == $PID {
+      let b = w[\"kCGWindowBounds\"] as? [String: Any] ?? [:]
+      let area = ((b[\"Width\"] as? NSNumber)?.doubleValue ?? 0) * ((b[\"Height\"] as? NSNumber)?.doubleValue ?? 0)
+      let n = (w[\"kCGWindowNumber\"] as? NSNumber)?.intValue ?? 0
+      if area < 30 { continue }
+      if (\"${3:-largest}\" == \"smallest\" ? area < best.1 : area > best.1) { best = (n, area) }
+    }
+    print(best.0)" 2>&1 | tail -1)
+    if [ "$WID" = "0" ] || [ -z "$WID" ]; then echo "no on-screen window for pid $PID"; exit 1; fi
+    screencapture -x -o -l "$WID" "$2" && echo "captured window $WID -> $2"
+    ;;
+  log)
+    log show --predicate 'subsystem == "io.github.hocky0301.Nori"' --last "${2:-2m}" --info --debug --style compact 2>/dev/null | grep -v Filtering | tail -${3:-40}
+    ;;
+  *) echo "usage: nori.sh launch [--seed-demo] | kill | cmd <open|open-center|close|toggle|seed|clear|settings|onboarding|ghost|pause|resume|query:TEXT|filter:NAME|down|up|preview|screenshot:PATH> | windows | shot out.png [largest|smallest] | log [2m] [40]" ;;
+esac

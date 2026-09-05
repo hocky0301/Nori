@@ -8,7 +8,12 @@ import Foundation
 /// Commands: open, close, toggle, seed, clear, screenshot:<path>
 @MainActor
 final class DebugBridge {
-    static let notificationName = Notification.Name("io.github.hocky0301.Nori.debug")
+    /// `--debug-channel=NAME` isolates parallel dev instances (each listens on its own name).
+    static var notificationName: Notification.Name {
+        let channel = CommandLine.arguments.first { $0.hasPrefix("--debug-channel=") }?
+            .dropFirst("--debug-channel=".count) ?? ""
+        return Notification.Name("io.github.hocky0301.Nori.debug" + (channel.isEmpty ? "" : ".\(channel)"))
+    }
     private unowned let coordinator: AppCoordinator
     private var token: (any NSObjectProtocol)?
 
