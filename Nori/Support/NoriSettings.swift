@@ -10,7 +10,12 @@ import ServiceManagement
 @MainActor
 @Observable
 final class NoriSettings {
-    static let shared = NoriSettings()
+    /// Under XCTest the host app must never touch the user's real preferences.
+    static let shared = NoriSettings(defaults: isRunningTests ? UserDefaults(suiteName: "io.github.hocky0301.Nori.tests")! : .standard)
+
+    nonisolated static var isRunningTests: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    }
 
     enum PanelPosition: String, CaseIterable, Identifiable, Sendable {
         case cursor, center, statusItem

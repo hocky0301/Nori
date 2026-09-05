@@ -165,7 +165,7 @@ final class PanelModel {
     }
 
     func hoverSelect(id: UUID) {
-        guard hoverSelectsRows else { return }
+        guard hoverSelectsRows, rows.first(where: { $0.id == id })?.row.isGhost != true else { return }
         select(id: id, scroll: false)
     }
 
@@ -329,6 +329,10 @@ final class PanelModel {
             }
             return true
         }
+
+        // In cycle mode the hotkey modifiers are still held, so ↑/↓ arrive with ⇧⌘ (or whatever the hotkey uses).
+        if isCycling, key.special == .down { moveSelection(by: 1, wrap: true); return true }
+        if isCycling, key.special == .up { moveSelection(by: -1, wrap: true); return true }
 
         if isClearConfirmationVisible {
             switch key.special {
