@@ -87,26 +87,26 @@ final class AppCoordinator {
 
     private func handle(_ event: ClipboardMonitor.Event) {
         switch event {
-        case let .captured(draft):
-            let id = history.ingest(draft)
+        case let .captured(draft, date):
+            let id = history.ingest(draft, now: date)
             if draft.kind == .image, settings.ocrImages {
                 ImageTextRecognizer.recognize(itemID: id, imageData: draft.data(for: PasteboardType.png)) { [weak self] id, text in
                     self?.history.updateSearchText(id: id, text: text)
                 }
             }
-        case let .sensitive(sensitive):
-            vault.add(sensitive)
+        case let .sensitive(sensitive, date):
+            vault.add(sensitive, now: date)
         case let .ghost(reason, date):
             if settings.showGhostRows {
                 model.addGhost(reason, at: date)
             } else {
                 settings.recordNotSaved(on: date)
             }
-        case let .promoted(id):
+        case let .promoted(id, date):
             if history.item(id: id) != nil {
-                history.touch(id: id)
+                history.touch(id: id, now: date)
             } else if vault.entry(id: id) != nil {
-                vault.touch(id: id)
+                vault.touch(id: id, now: date)
             }
         case .rejected:
             break

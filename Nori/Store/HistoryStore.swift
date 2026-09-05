@@ -81,7 +81,7 @@ final class HistoryStore {
         let item = ClipItem(draft: draft, now: now)
         context.insert(item)
         attach(draft.contents, to: item)
-        items.insert(item, at: 0)
+        insertByRecency(item)
         enforceLimit()
         save()
         return item.id
@@ -203,7 +203,13 @@ final class HistoryStore {
 
     private func moveToTop(_ item: ClipItem) {
         items.removeAll { $0.id == item.id }
-        items.insert(item, at: 0)
+        insertByRecency(item)
+    }
+
+    /// Keep `items` sorted by `lastCopiedAt` (newest first) even when captures arrive with earlier timestamps.
+    private func insertByRecency(_ item: ClipItem) {
+        let index = items.firstIndex { $0.lastCopiedAt <= item.lastCopiedAt } ?? items.count
+        items.insert(item, at: index)
     }
 
     private func enforceLimit() {

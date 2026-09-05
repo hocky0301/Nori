@@ -6,10 +6,10 @@ import OSLog
 @MainActor
 final class ClipboardMonitor {
     enum Event: Sendable {
-        case captured(ClipDraft)
-        case sensitive(SensitiveDraft)
+        case captured(ClipDraft, at: Date)
+        case sensitive(SensitiveDraft, at: Date)
         case ghost(GhostReason, at: Date)
-        case promoted(UUID)
+        case promoted(UUID, at: Date)
         case rejected(CaptureRejection)
     }
 
@@ -22,6 +22,9 @@ final class ClipboardMonitor {
 
     private(set) var lastChangeCount: Int
     private var timer: Timer?
+    /// Classification runs off the main actor, but outcomes must arrive in changeCount order:
+    /// a short text copied right after a screenshot would otherwise overtake it.
+    private var pendingClassification: Task<Void, Never>?
     private let pasteboard: NSPasteboard
     private var activity: (any NSObjectProtocol)?
     private let logger = Logger(subsystem: "io.github.hocky0301.Nori", category: "monitor")
@@ -78,9 +81,13 @@ final class ClipboardMonitor {
         }
 
         let policy = self.policy
-        Task.detached(priority: .userInitiated) { [weak self] in
-            let outcome = ClipClassifier.classify(snapshot, policy: policy)
-            await self?.deliver(outcome, capturedAt: snapshot.capturedAt)
+        let previous = pendingClassification
+        pendingClassification = Task(priority: .userInitiated) { [weak self] in
+            await previous?.value
+            let outcome = await Task.detached(priority: .userInitiated) {
+                ClipClassifier.classify(snapshot, policy: policy)
+            }.value
+            self?.deliver(outcome, capturedAt: snapshot.capturedAt)
         }
     }
 
@@ -88,15 +95,15 @@ final class ClipboardMonitor {
         switch outcome {
         case let .captured(draft):
             logger.info("captured \(draft.kind.rawValue, privacy: .public) (\(draft.byteCount) bytes)")
-            onEvent?(.captured(draft))
+            onEvent?(.captured(draft, at: capturedAt))
         case let .sensitive(sensitive):
             logger.info("sensitive \(sensitive.match.rawValue, privacy: .public) kept in memory")
-            onEvent?(.sensitive(sensitive))
+            onEvent?(.sensitive(sensitive, at: capturedAt))
         case let .ghost(reason):
             logger.info("ghost: \(reason.message, privacy: .public)")
             onEvent?(.ghost(reason, at: capturedAt))
         case let .rejected(.fromNori(id)):
-            if let id { onEvent?(.promoted(id)) }
+            if let id { onEvent?(.promoted(id, at: capturedAt)) }
         case let .rejected(reason):
             logger.debug("rejected: \(String(describing: reason), privacy: .public)")
             onEvent?(.rejected(reason))
