@@ -20,7 +20,7 @@ macOS でクリップボード系ツールを書く人、Swift 6 の strict conc
 | macOS | 26.5 (25F71) |
 | Xcode | 26.6 (17F113) / Swift 6.3.3 |
 | デプロイターゲット | macOS 26.0 |
-| 依存パッケージ | sindresorhus/KeyboardShortcuts 2.x のみ 【要確認: Package.resolved】 |
+| 依存パッケージ | sindresorhus/KeyboardShortcuts 2.4.0 のみ |
 | プロジェクト生成 | xcodegen 2.45.4 |
 | 読んだ本家 | Maccy 2.7.1（Swift 117 ファイル / 9,637 行） |
 | 実装 | Claude Code（Claude Fable 5.1） |
