@@ -1,0 +1,555 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="App_Name" xml:space="preserve">
+    <value>Nori</value>
+  </data>
+  <data name="Verb_Paste" xml:space="preserve">
+    <value>貼り付け</value>
+  </data>
+  <data name="Verb_PastePlain" xml:space="preserve">
+    <value>書式なしで貼り付け</value>
+  </data>
+  <data name="Verb_PasteKeepOpen" xml:space="preserve">
+    <value>貼り付けて Nori を開いたまま</value>
+  </data>
+  <data name="Verb_PastePlainKeepOpen" xml:space="preserve">
+    <value>書式なしで貼り付け、開いたまま</value>
+  </data>
+  <data name="Verb_Copy" xml:space="preserve">
+    <value>コピー</value>
+  </data>
+  <data name="Verb_CopyPlain" xml:space="preserve">
+    <value>書式なしでコピー</value>
+  </data>
+  <data name="Verb_CopyKeepOpen" xml:space="preserve">
+    <value>コピーして開いたまま</value>
+  </data>
+  <data name="Verb_CopyPlainKeepOpen" xml:space="preserve">
+    <value>書式なしでコピー、開いたまま</value>
+  </data>
+  <data name="Verb_PastePlainKeepOpen_Item" xml:space="preserve">
+    <value>項目を書式なしで貼り付け、開いたまま</value>
+  </data>
+  <data name="Verb_CopyPlainKeepOpen_Item" xml:space="preserve">
+    <value>項目を書式なしでコピー、開いたまま</value>
+  </data>
+  <data name="Hint_Plain" xml:space="preserve">
+    <value>書式なし</value>
+  </data>
+  <data name="Hint_Preview" xml:space="preserve">
+    <value>プレビュー</value>
+  </data>
+  <data name="Hint_Pin" xml:space="preserve">
+    <value>ピン留め</value>
+  </data>
+  <data name="Hint_Delete" xml:space="preserve">
+    <value>削除</value>
+  </data>
+  <data name="Hint_PasteItem" xml:space="preserve">
+    <value>項目を貼り付け</value>
+  </data>
+  <data name="Hint_CopyItem" xml:space="preserve">
+    <value>項目をコピー</value>
+  </data>
+  <data name="Hint_Open" xml:space="preserve">
+    <value>開く</value>
+  </data>
+  <data name="Hint_Reveal" xml:space="preserve">
+    <value>場所を表示</value>
+  </data>
+  <data name="Hint_Clear" xml:space="preserve">
+    <value>消去…</value>
+  </data>
+  <data name="Hint_Same" xml:space="preserve">
+    <value>同じ</value>
+  </data>
+  <data name="Hint_PasteItemPlain" xml:space="preserve">
+    <value>項目を書式なしで貼り付け</value>
+  </data>
+  <data name="Hint_PasteItemKeepOpen" xml:space="preserve">
+    <value>項目を貼り付け、開いたまま</value>
+  </data>
+  <data name="Hint_CopyItemPlain" xml:space="preserve">
+    <value>項目を書式なしでコピー</value>
+  </data>
+  <data name="Hint_CopyItemKeepOpen" xml:space="preserve">
+    <value>項目をコピー、開いたまま</value>
+  </data>
+  <data name="Hint_ToPaste" xml:space="preserve">
+    <value>で貼り付け</value>
+  </data>
+  <data name="Hint_Move" xml:space="preserve">
+    <value>移動</value>
+  </data>
+  <data name="Hint_Cancel" xml:space="preserve">
+    <value>キャンセル</value>
+  </data>
+  <data name="Hint_CopyNoTarget" xml:space="preserve">
+    <value>コピー · 貼り付け先のアプリがありません</value>
+  </data>
+  <data name="Search_Placeholder" xml:space="preserve">
+    <value>検索</value>
+  </data>
+  <data name="Search_Paused" xml:space="preserve">
+    <value>記録を一時停止中</value>
+  </data>
+  <data name="Search_PausedCountdown" xml:space="preserve">
+    <value>記録を一時停止中 · {0}</value>
+  </data>
+  <data name="Filter_All" xml:space="preserve">
+    <value>すべて</value>
+  </data>
+  <data name="Filter_Text" xml:space="preserve">
+    <value>テキスト</value>
+  </data>
+  <data name="Filter_Links" xml:space="preserve">
+    <value>リンク</value>
+  </data>
+  <data name="Filter_Code" xml:space="preserve">
+    <value>コード</value>
+  </data>
+  <data name="Filter_Colors" xml:space="preserve">
+    <value>色</value>
+  </data>
+  <data name="Filter_Images" xml:space="preserve">
+    <value>画像</value>
+  </data>
+  <data name="Filter_Files" xml:space="preserve">
+    <value>ファイル</value>
+  </data>
+  <data name="Section_Pinned" xml:space="preserve">
+    <value>ピン留め</value>
+  </data>
+  <data name="Section_Today" xml:space="preserve">
+    <value>今日</value>
+  </data>
+  <data name="Section_Yesterday" xml:space="preserve">
+    <value>昨日</value>
+  </data>
+  <data name="Section_Earlier" xml:space="preserve">
+    <value>それ以前</value>
+  </data>
+  <data name="Section_Results" xml:space="preserve">
+    <value>検索結果</value>
+  </data>
+  <data name="Card_Lines" xml:space="preserve">
+    <value>{0} 行</value>
+  </data>
+  <data name="Card_Chars" xml:space="preserve">
+    <value>{0} 文字</value>
+  </data>
+  <data name="Card_RichText" xml:space="preserve">
+    <value>リッチテキスト</value>
+  </data>
+  <data name="Card_Files" xml:space="preserve">
+    <value>{0} 個のファイル</value>
+  </data>
+  <data name="Card_ExpiresIn" xml:space="preserve">
+    <value>あと {0} で消えます</value>
+  </data>
+  <data name="Card_Ghost_Concealed" xml:space="preserve">
+    <value>{0} の非公開項目は保存されませんでした</value>
+  </data>
+  <data name="Card_Ghost_ConcealedUnknown" xml:space="preserve">
+    <value>アプリの非公開項目は保存されませんでした</value>
+  </data>
+  <data name="Card_Ghost_ImageTooLarge" xml:space="preserve">
+    <value>大きすぎる画像 ({0}) は保存されませんでした</value>
+  </data>
+  <data name="Card_ImageCaption" xml:space="preserve">
+    <value>{0} × {1} · PNG · {2}</value>
+  </data>
+  <data name="Card_Truncated" xml:space="preserve">
+    <value>先頭の 10,000 文字を表示しています</value>
+  </data>
+  <data name="Card_Meta" xml:space="preserve">
+    <value>{0} · 初回 {1} · 最終 {2} · {3} 回コピー</value>
+  </data>
+  <data name="Card_Copied" xml:space="preserve">
+    <value>{0} 回コピー</value>
+  </data>
+  <data name="Expanded_Open" xml:space="preserve">
+    <value>開く</value>
+  </data>
+  <data name="Expanded_Reveal" xml:space="preserve">
+    <value>エクスプローラーで表示</value>
+  </data>
+  <data name="Empty_NothingTitle" xml:space="preserve">
+    <value>まだ何もコピーされていません</value>
+  </data>
+  <data name="Empty_NothingBody" xml:space="preserve">
+    <value>どのアプリでもコピーすると、ここに表示されます。</value>
+  </data>
+  <data name="Empty_NothingHotkey" xml:space="preserve">
+    <value>{0} で Nori を開きます</value>
+  </data>
+  <data name="Empty_NoMatches" xml:space="preserve">
+    <value>“{0}” に一致する項目はありません</value>
+  </data>
+  <data name="Empty_NoMatchesHint" xml:space="preserve">
+    <value>Enter で “{0}” をテキストとして貼り付け · Esc で閉じる</value>
+  </data>
+  <data name="Empty_Filter_Text" xml:space="preserve">
+    <value>テキストはまだありません</value>
+  </data>
+  <data name="Empty_Filter_Link" xml:space="preserve">
+    <value>リンクはまだありません</value>
+  </data>
+  <data name="Empty_Filter_Code" xml:space="preserve">
+    <value>コードはまだありません</value>
+  </data>
+  <data name="Empty_Filter_Color" xml:space="preserve">
+    <value>色はまだありません</value>
+  </data>
+  <data name="Empty_Filter_Image" xml:space="preserve">
+    <value>画像はまだありません</value>
+  </data>
+  <data name="Empty_Filter_File" xml:space="preserve">
+    <value>ファイルはまだありません</value>
+  </data>
+  <data name="Toast_Deleted" xml:space="preserve">
+    <value>削除しました · Ctrl+Z で元に戻す</value>
+  </data>
+  <data name="Toast_Copied" xml:space="preserve">
+    <value>コピーしました</value>
+  </data>
+  <data name="Toast_Cleared" xml:space="preserve">
+    <value>{0} 件を消去しました</value>
+  </data>
+  <data name="Toast_StoreReset" xml:space="preserve">
+    <value>履歴を開けなかったためリセットしました</value>
+  </data>
+  <data name="Menu_Paste" xml:space="preserve">
+    <value>貼り付け</value>
+  </data>
+  <data name="Menu_PastePlain" xml:space="preserve">
+    <value>書式なしで貼り付け</value>
+  </data>
+  <data name="Menu_PasteKeepOpen" xml:space="preserve">
+    <value>貼り付けて開いたまま</value>
+  </data>
+  <data name="Menu_Copy" xml:space="preserve">
+    <value>コピー</value>
+  </data>
+  <data name="Menu_Preview" xml:space="preserve">
+    <value>プレビュー</value>
+  </data>
+  <data name="Menu_Pin" xml:space="preserve">
+    <value>ピン留め</value>
+  </data>
+  <data name="Menu_Unpin" xml:space="preserve">
+    <value>ピン留めを解除</value>
+  </data>
+  <data name="Menu_OpenInBrowser" xml:space="preserve">
+    <value>ブラウザーで開く</value>
+  </data>
+  <data name="Menu_Open" xml:space="preserve">
+    <value>開く</value>
+  </data>
+  <data name="Menu_Reveal" xml:space="preserve">
+    <value>エクスプローラーで表示</value>
+  </data>
+  <data name="Menu_Delete" xml:space="preserve">
+    <value>削除</value>
+  </data>
+  <data name="Tray_Open" xml:space="preserve">
+    <value>Nori を開く</value>
+  </data>
+  <data name="Tray_Pause" xml:space="preserve">
+    <value>記録を一時停止</value>
+  </data>
+  <data name="Tray_Pause5" xml:space="preserve">
+    <value>5 分間</value>
+  </data>
+  <data name="Tray_Pause30" xml:space="preserve">
+    <value>30 分間</value>
+  </data>
+  <data name="Tray_PauseUntilResume" xml:space="preserve">
+    <value>再開するまで</value>
+  </data>
+  <data name="Tray_Resume" xml:space="preserve">
+    <value>記録を再開</value>
+  </data>
+  <data name="Tray_PausedCaption" xml:space="preserve">
+    <value>一時停止中 · 残り {0}</value>
+  </data>
+  <data name="Tray_SkipNext" xml:space="preserve">
+    <value>次のコピーを記録しない</value>
+  </data>
+  <data name="Tray_NotSaved" xml:space="preserve">
+    <value>今日 {0} 件が保存されませんでした</value>
+  </data>
+  <data name="Tray_NotSavedOne" xml:space="preserve">
+    <value>今日 1 件が保存されませんでした</value>
+  </data>
+  <data name="Tray_ClearHistory" xml:space="preserve">
+    <value>履歴を消去…</value>
+  </data>
+  <data name="Tray_Settings" xml:space="preserve">
+    <value>設定…</value>
+  </data>
+  <data name="Tray_About" xml:space="preserve">
+    <value>Nori について</value>
+  </data>
+  <data name="Tray_Quit" xml:space="preserve">
+    <value>Nori を終了</value>
+  </data>
+  <data name="Tray_Tooltip" xml:space="preserve">
+    <value>Nori — {0}</value>
+  </data>
+  <data name="Tray_TooltipPaused" xml:space="preserve">
+    <value>Nori — 記録を一時停止中</value>
+  </data>
+  <data name="Clear_Title" xml:space="preserve">
+    <value>履歴を消去</value>
+  </data>
+  <data name="Clear_Body" xml:space="preserve">
+    <value>ピン留めされていない {0} 件を削除しますか？ ピン留めした項目は残ります。</value>
+  </data>
+  <data name="Clear_BodyPinned" xml:space="preserve">
+    <value>ピン留めを含むすべての {0} 件を削除しますか？</value>
+  </data>
+  <data name="Clear_Confirm" xml:space="preserve">
+    <value>消去</value>
+  </data>
+  <data name="Clear_IncludePinned" xml:space="preserve">
+    <value>ピン留めした項目も削除する</value>
+  </data>
+  <data name="Dialog_Cancel" xml:space="preserve">
+    <value>キャンセル</value>
+  </data>
+  <data name="Dialog_OK" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Settings_Title" xml:space="preserve">
+    <value>Nori の設定</value>
+  </data>
+  <data name="Tab_General" xml:space="preserve">
+    <value>一般</value>
+  </data>
+  <data name="Tab_Capture" xml:space="preserve">
+    <value>記録</value>
+  </data>
+  <data name="Tab_Privacy" xml:space="preserve">
+    <value>プライバシー</value>
+  </data>
+  <data name="Tab_Look" xml:space="preserve">
+    <value>外観</value>
+  </data>
+  <data name="Tab_About" xml:space="preserve">
+    <value>情報</value>
+  </data>
+  <data name="General_Hotkey" xml:space="preserve">
+    <value>Nori を開くショートカット</value>
+  </data>
+  <data name="General_HotkeyCaption" xml:space="preserve">
+    <value>アプリによっては Ctrl+Shift+V が「書式なしで貼り付け」に割り当てられています。その場合は Nori 内で Shift+Enter を使うか、別のショートカットを選んでください。</value>
+  </data>
+  <data name="General_StartWithWindows" xml:space="preserve">
+    <value>サインイン時に Nori を起動</value>
+  </data>
+  <data name="General_Position" xml:space="preserve">
+    <value>パネルの表示位置</value>
+  </data>
+  <data name="Position_Cursor" xml:space="preserve">
+    <value>マウスポインターの位置</value>
+  </data>
+  <data name="Position_Center" xml:space="preserve">
+    <value>画面の中央</value>
+  </data>
+  <data name="Position_Tray" xml:space="preserve">
+    <value>タスクトレイの近く</value>
+  </data>
+  <data name="General_ShowWelcome" xml:space="preserve">
+    <value>ようこそ画面をもう一度表示</value>
+  </data>
+  <data name="Capture_Remember" xml:space="preserve">
+    <value>記録する内容</value>
+  </data>
+  <data name="Capture_Text" xml:space="preserve">
+    <value>テキスト</value>
+  </data>
+  <data name="Capture_Images" xml:space="preserve">
+    <value>画像</value>
+  </data>
+  <data name="Capture_Files" xml:space="preserve">
+    <value>ファイル</value>
+  </data>
+  <data name="Capture_KeepUpTo" xml:space="preserve">
+    <value>保存する上限</value>
+  </data>
+  <data name="Capture_Clips" xml:space="preserve">
+    <value>件 (ピン留めは含まない)</value>
+  </data>
+  <data name="Capture_Forget" xml:space="preserve">
+    <value>この期間より古い項目を削除</value>
+  </data>
+  <data name="Forget_Never" xml:space="preserve">
+    <value>削除しない</value>
+  </data>
+  <data name="Forget_Day" xml:space="preserve">
+    <value>1 日</value>
+  </data>
+  <data name="Forget_Week" xml:space="preserve">
+    <value>1 週間</value>
+  </data>
+  <data name="Forget_Month" xml:space="preserve">
+    <value>1 か月</value>
+  </data>
+  <data name="Capture_LargestImage" xml:space="preserve">
+    <value>保存する画像の最大サイズ</value>
+  </data>
+  <data name="Capture_IgnoreRegex" xml:space="preserve">
+    <value>次のパターンに一致するテキストは記録しない (1 行に 1 つの正規表現)</value>
+  </data>
+  <data name="Privacy_IgnoredApps" xml:space="preserve">
+    <value>次のアプリからのコピーは記録しない</value>
+  </data>
+  <data name="Privacy_Add" xml:space="preserve">
+    <value>追加…</value>
+  </data>
+  <data name="Privacy_Remove" xml:space="preserve">
+    <value>削除</value>
+  </data>
+  <data name="Privacy_MaskSecrets" xml:space="preserve">
+    <value>パスワードや API キーらしきものを隠す</value>
+  </data>
+  <data name="Privacy_MaskSecretsCaption" xml:space="preserve">
+    <value>マスク表示され、ディスクには保存されず、10 分後に消えます</value>
+  </data>
+  <data name="Privacy_GhostRows" xml:space="preserve">
+    <value>保存されなかった項目があるときに一覧に表示する</value>
+  </data>
+  <data name="Privacy_ClearOnQuit" xml:space="preserve">
+    <value>Nori の終了時に履歴を消去</value>
+  </data>
+  <data name="Privacy_StorageNote" xml:space="preserve">
+    <value>履歴は %LOCALAPPDATA%\Nori に暗号化されずに保存されます。機密性の高い作業では一時停止を使ってください。</value>
+  </data>
+  <data name="Privacy_StorageUsed" xml:space="preserve">
+    <value>使用中のストレージ</value>
+  </data>
+  <data name="Privacy_StorageValue" xml:space="preserve">
+    <value>{0} · {1} 件 · ピン留め {2} 件</value>
+  </data>
+  <data name="Privacy_ClearHistory" xml:space="preserve">
+    <value>履歴を消去…</value>
+  </data>
+  <data name="Look_AppIcons" xml:space="preserve">
+    <value>項目にアプリのアイコンを表示</value>
+  </data>
+  <data name="Look_Keycaps" xml:space="preserve">
+    <value>項目に Ctrl+1–9 を表示</value>
+  </data>
+  <data name="Look_HintBar" xml:space="preserve">
+    <value>パネルの下部にキーボードのヒントを表示</value>
+  </data>
+  <data name="About_Version" xml:space="preserve">
+    <value>バージョン {0}</value>
+  </data>
+  <data name="About_Tagline" xml:space="preserve">
+    <value>コピーしたものが何かひと目でわかるクリップボード履歴。</value>
+  </data>
+  <data name="About_GitHub" xml:space="preserve">
+    <value>GitHub</value>
+  </data>
+  <data name="About_Inspired" xml:space="preserve">
+    <value>Maccy にインスパイアされました</value>
+  </data>
+  <data name="About_License" xml:space="preserve">
+    <value>MIT ライセンス</value>
+  </data>
+  <data name="About_Privacy" xml:space="preserve">
+    <value>ネットワークにはアクセスしません。履歴がこの PC の外に出ることはありません。</value>
+  </data>
+  <data name="Welcome_Title1" xml:space="preserve">
+    <value>Nori はコピーしたものを覚えています</value>
+  </data>
+  <data name="Welcome_Body1" xml:space="preserve">
+    <value>どこでもショートカットを押すとクリップボードの履歴が開きます。項目を選んで Enter を押すと、使っていたアプリに貼り付けられます。</value>
+  </data>
+  <data name="Welcome_Title2" xml:space="preserve">
+    <value>Windows と一緒に起動しますか？</value>
+  </data>
+  <data name="Welcome_Body2" xml:space="preserve">
+    <value>Nori はタスクトレイに常駐してクリップボードを見守ります。サインイン時に起動すれば、履歴がいつでも使えます。</value>
+  </data>
+  <data name="Welcome_Next" xml:space="preserve">
+    <value>次へ</value>
+  </data>
+  <data name="Welcome_Done" xml:space="preserve">
+    <value>完了</value>
+  </data>
+  <data name="Welcome_Back" xml:space="preserve">
+    <value>戻る</value>
+  </data>
+  <data name="Welcome_Seed" xml:space="preserve">
+    <value>Nori へようこそ 👋 Enter を押すとこれが貼り付けられます。</value>
+  </data>
+  <data name="Hotkey_CtrlShiftV" xml:space="preserve">
+    <value>Ctrl+Shift+V</value>
+  </data>
+  <data name="Hotkey_CtrlAltV" xml:space="preserve">
+    <value>Ctrl+Alt+V</value>
+  </data>
+  <data name="Hotkey_CtrlBacktick" xml:space="preserve">
+    <value>Ctrl+`</value>
+  </data>
+  <data name="Hotkey_Failed" xml:space="preserve">
+    <value>{0} を登録できませんでした。ほかのアプリが使っている可能性があります。設定で別のショートカットを選んでください。</value>
+  </data>
+  <data name="Secret_PrivateKey" xml:space="preserve">
+    <value>秘密鍵</value>
+  </data>
+  <data name="Secret_AwsAccessKey" xml:space="preserve">
+    <value>AWS アクセスキー</value>
+  </data>
+  <data name="Secret_GitHubToken" xml:space="preserve">
+    <value>GitHub トークン</value>
+  </data>
+  <data name="Secret_ApiKey" xml:space="preserve">
+    <value>API キー</value>
+  </data>
+  <data name="Secret_SlackToken" xml:space="preserve">
+    <value>Slack トークン</value>
+  </data>
+  <data name="Secret_GoogleApiKey" xml:space="preserve">
+    <value>Google API キー</value>
+  </data>
+  <data name="Secret_AccessToken" xml:space="preserve">
+    <value>アクセストークン</value>
+  </data>
+  <data name="Secret_CardNumber" xml:space="preserve">
+    <value>カード番号</value>
+  </data>
+  <data name="Source_Nori" xml:space="preserve">
+    <value>Nori</value>
+  </data>
+  <data name="Source_Unknown" xml:space="preserve">
+    <value>不明なアプリ</value>
+  </data>
+  <data name="FileDialog_Apps" xml:space="preserve">
+    <value>アプリケーション (*.exe)|*.exe</value>
+  </data>
+  <data name="FileDialog_Title" xml:space="preserve">
+    <value>記録しないアプリを選択</value>
+  </data>
+  <data name="Common_Enabled" xml:space="preserve">
+    <value>有効</value>
+  </data>
+  <data name="Common_Disabled" xml:space="preserve">
+    <value>無効</value>
+  </data>
+</root>
