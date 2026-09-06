@@ -2,7 +2,7 @@
 title: "macOS 26 でクリップボード履歴アプリをゼロから作って踏んだ落とし穴 10 個 ── NSPasteboard・非アクティブ化パネル・SwiftData・Swift 6"
 emoji: "🧷"
 type: "tech"
-topics: ["macos", "swift", "swiftui", "swiftdata"]
+topics: ["macos", "swift", "swiftui", "swiftdata", "wpf"]
 published: false
 ---
 
@@ -244,13 +244,49 @@ scripts/dev-drive.sh shot panel.png
 
 このループが回るようになってから、UI 実装は 3 つのワークツリーで並列に進めました（パネル UI / 設定画面とオンボーディング / テスト）。【要確認: 最終的なテスト数・LOC・スクリーンショット】
 
+## Windows 版も作った ── 同じ設計、違う機構
+
+「Mac だけだと片手落ちだよね」ということで、Windows 版（C# / .NET 10 / WPF）も作りました。Swift のコードは 1 行も動かないので別実装ですが、**判定ロジックは 1:1 で移植**しています（`Nori.Core`。テストも同じケースを xUnit に移して 179 件）。
+
+移植して初めて気付いた、macOS と Windows の違いが 3 つあります。
+
+| | macOS | Windows |
+|---|---|---|
+| クリップボードの変化 | 通知が無い。`changeCount` を 200ms ポーリング | `AddClipboardFormatListener` で `WM_CLIPBOARDUPDATE` が飛んでくる。**ポーリング不要** |
+| 「保存するな」印 | `org.nspasteboard.ConcealedType`（有志の規約） | `ExcludeClipboardContentFromMonitorProcessing` / `CanIncludeInClipboardHistory`（OS 公式） |
+| パネルのフォーカス | 非アクティブ化パネルで**フォーカスを奪わない**。だから ⌘V がそのまま元アプリに届く | フォーカスを奪わないと文字入力ができない。だから元の HWND を覚えておいて、閉じてから `SetForegroundWindow` → `SendInput` で Ctrl+V |
+
+3 つ目が一番効きます。macOS は「奪わない」ことに苦労し、Windows は「返す」ことに苦労する。同じ機能なのに難所が正反対でした。
+
+### CI でしか動かせないアプリを、どう確認するか
+
+開発機は Mac なので、WPF アプリはビルドはできても**起動できません**（`EnableWindowsTargeting` でコンパイルだけ通る）。そこでアプリ自身にスクリーンショットモードを持たせ、GitHub Actions の `windows-latest` で全状態を撮って artifact に上げるようにしました。
+
+```powershell
+Nori.exe --state default --screenshot shots/default.png
+```
+
+`--state` は `default / search:swift / filter:code / cmd / shift / expanded:4 / ghost / empty / dark / settings / onboarding` の 11 種類。時計は固定なので「2分前」の表示もブレず、UI が変わったときだけ画像が変わります。
+
+この仕組みのおかげで、**単一ファイル発行でしか出ないバグ**も CI が捕まえました。
+
+```
+error IL3000: 'System.Reflection.Assembly.Location.get' always returns an empty string
+for assemblies embedded in a single-file app.
+```
+
+「Windows 起動時に実行」をレジストリに書くとき、exe のパスを `Assembly.Location` で取ろうとしていた箇所です。単一ファイルに固めると常に空文字を返すので、`Environment.ProcessPath` を使うのが正解でした。ローカルの `dotnet build` は通り、`dotnet publish -p:PublishSingleFile=true` で初めて落ちます。
+
+なお自己完結（.NET ランタイム同梱）の単一 exe は **176MB** ありました。`EnableCompressionInSingleFile=true` を付けて **74MB**。ユーザーに「まず .NET を入れてください」と言わずに済む代わりの重さです。
+
 ## できていないこと
 
 - Developer ID がないので配布ビルドは ad-hoc 署名です。初回だけ `xattr -d com.apple.quarantine` が要ります。
 - App Sandbox は未対応。
 - 画像 OCR（スクリーンショットの文字検索）は実装済みですが既定でオフ（Vision の結果が非決定的でテストしづらいため）。
 - Chrome Remote Desktop / NetBeans など、合成した ⌘V を無視するアプリへの対策（Maccy がやっているアクティベート→隠す小技）は入れていません。
-- UI は英語と日本語（String Catalog、244 キー）。他言語は未対応。
+- UI は英語と日本語（String Catalog）。他言語は未対応。
+- Windows 版はサイクルモード（ショートカット押しっぱなしで送る）が未実装。
 
 ## まとめ
 
@@ -258,5 +294,6 @@ scripts/dev-drive.sh shot panel.png
 - SwiftData の `EXC_BREAKPOINT` はメッセージが無い。「insert 前のリレーション」「コンテナ 2 個」の 2 つを先に疑う。
 - Swift 6 の Sendable エラーは `Regex` / `NSEvent` / Carbon のグローバル定数 で出る。直し方は 1 行。
 - GUI の検証口（遠隔操作 + 外部スクリーンショット）を先に作ると、その後の UI 作業が全部楽になる。
+- 同じアプリを macOS と Windows で作ると、難所がきれいに反転する。macOS はフォーカスを「奪わない」ため、Windows は「返す」ために苦労する。
 
 コードはすべて https://github.com/hocky0301/Nori にあります。Maccy の作者 Alexey Rodionov 氏に感謝を。
