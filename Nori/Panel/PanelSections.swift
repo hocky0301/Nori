@@ -33,7 +33,9 @@ enum PanelSections {
         for row in history + sensitive where filter.matches(kind: row.kind) {
             if row.isSensitive, searching { continue }  // secrets are never indexed
             guard let match = HistorySearch.match(query: query, title: row.title, searchText: row.searchText) else { continue }
-            scored.append((Row(row: row, titleRanges: match.titleRanges, number: nil), match.score))
+            // Fuzzy (subsequence) hits rank last and are not highlighted: scattered letters read as noise.
+            let ranges = match.score >= 5 ? [] : match.titleRanges
+            scored.append((Row(row: row, titleRanges: ranges, number: nil), match.score))
         }
 
         var sections: [Section] = []
