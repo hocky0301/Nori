@@ -1191,16 +1191,6 @@
         }
       }
     },
-    "Look": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "外観"
-          }
-        }
-      }
-    },
     "MIT License": {
       "localizations": {
         "ja": {
@@ -1947,16 +1937,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "ようこそ画面をもう一度表示"
-          }
-        }
-      }
-    },
-    "Show ⌘1–⌘9 on clips": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "クリップに ⌘1–⌘9 を表示"
           }
         }
       }

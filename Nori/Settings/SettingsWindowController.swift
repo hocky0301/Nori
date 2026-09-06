@@ -2,14 +2,13 @@ import AppKit
 import SwiftUI
 
 enum SettingsTab: String, CaseIterable, Identifiable {
-    case general, capture, privacy, look, about
+    case general, capture, privacy, about
     var id: String { rawValue }
     var title: String {
         switch self {
         case .general: String(localized: "General")
         case .capture: String(localized: "Capture")
         case .privacy: String(localized: "Privacy")
-        case .look: String(localized: "Look")
         case .about: String(localized: "About")
         }
     }
@@ -18,7 +17,6 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .general: "gearshape"
         case .capture: "tray.and.arrow.down"
         case .privacy: "lock.shield"
-        case .look: "paintpalette"
         case .about: "info.circle"
         }
     }

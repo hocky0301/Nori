@@ -173,7 +173,8 @@ internal sealed class NoriSettings
             if (key is null) return;
             if (enabled)
             {
-                var exe = Environment.ProcessPath ?? System.Reflection.Assembly.GetExecutingAssembly().Location;
+                // Assembly.Location is empty in a single-file publish; ProcessPath is the real exe.
+                var exe = Environment.ProcessPath ?? System.IO.Path.Combine(AppContext.BaseDirectory, "Nori.exe");
                 key.SetValue(RunValue, $"\"{exe}\"");
             }
             else

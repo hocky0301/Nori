@@ -22,7 +22,7 @@ struct CardMeta: View {
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
-            if let number, model.settings.showKeycaps {
+            if let number {
                 Keycap(text: "⌘\(number)")
                     .opacity(model.modifierBits.contains(.copyOnly) ? 1 : 0.5)
                     .animation(motion.keycap, value: model.modifierBits)

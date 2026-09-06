@@ -13,7 +13,6 @@ struct SettingsRootView: View {
             case .general: GeneralPane(model: model)
             case .capture: CapturePane(model: model)
             case .privacy: PrivacyPane(model: model)
-            case .look: LookPane(model: model)
             case .about: AboutPane()
             }
         }

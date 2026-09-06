@@ -51,7 +51,6 @@ struct NoriSettingsDefaultsTests {
     @Test func lookDefaults() {
         let settings = DefaultsSuite().settings()
         #expect(settings.showAppIcons == true)
-        #expect(settings.showKeycaps == true)
         #expect(settings.showHintBar == true)
     }
 
@@ -83,7 +82,6 @@ struct NoriSettingsDefaultsTests {
         #expect(NoriSettings.Key.clearOnQuit == "clearOnQuit")
         #expect(NoriSettings.Key.clearSystemClipboardOnClear == "clearSystemClipboardOnClear")
         #expect(NoriSettings.Key.showAppIcons == "showAppIcons")
-        #expect(NoriSettings.Key.showKeycaps == "showKeycaps")
         #expect(NoriSettings.Key.showHintBar == "showHintBar")
         #expect(NoriSettings.Key.hasCompletedOnboarding == "hasCompletedOnboarding")
         #expect(NoriSettings.Key.pausedUntil == "pauseUntil")

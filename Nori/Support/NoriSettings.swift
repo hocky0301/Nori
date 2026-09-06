@@ -54,7 +54,6 @@ final class NoriSettings {
         clearOnQuit = bool(Key.clearOnQuit, false)
         clearSystemClipboardOnClear = bool(Key.clearSystemClipboardOnClear, false)
         showAppIcons = bool(Key.showAppIcons, true)
-        showKeycaps = bool(Key.showKeycaps, true)
         showHintBar = bool(Key.showHintBar, true)
         ocrImages = bool(Key.ocrImages, false)
         hasCompletedOnboarding = bool(Key.hasCompletedOnboarding, false)
@@ -86,7 +85,6 @@ final class NoriSettings {
         static let clearOnQuit = "clearOnQuit"
         static let clearSystemClipboardOnClear = "clearSystemClipboardOnClear"
         static let showAppIcons = "showAppIcons"
-        static let showKeycaps = "showKeycaps"
         static let showHintBar = "showHintBar"
         static let ocrImages = "ocrImages"
         static let hasCompletedOnboarding = "hasCompletedOnboarding"
@@ -126,7 +124,6 @@ final class NoriSettings {
 
     // Look
     var showAppIcons: Bool { didSet { defaults.set(showAppIcons, forKey: Key.showAppIcons) } }
-    var showKeycaps: Bool { didSet { defaults.set(showKeycaps, forKey: Key.showKeycaps) } }
     var showHintBar: Bool { didSet { defaults.set(showHintBar, forKey: Key.showHintBar) } }
 
     // Internal state

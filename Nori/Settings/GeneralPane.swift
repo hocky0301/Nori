@@ -2,7 +2,7 @@ import KeyboardShortcuts
 import ServiceManagement
 import SwiftUI
 
-/// Settings › General (§8): hotkey, cycling, login item, panel position, menu bar icon, pasting status.
+/// Settings › General: hotkey, cycling, login item, panel position, menu bar icon, pasting status, appearance.
 struct GeneralPane: View {
     @Bindable var model: SettingsModel
     @State private var launchAtLogin = false
@@ -27,6 +27,12 @@ struct GeneralPane: View {
                     Text("Show icon in the menu bar")
                     Text("Without it, open Settings with ⌘, inside the panel")
                 }
+            }
+            Section {
+                Toggle("Show app icons on clips", isOn: $settings.showAppIcons)
+                Toggle("Show keyboard hints at the bottom of the panel", isOn: $settings.showHintBar)
+            } footer: {
+                Text("The panel follows the system appearance and accent color.")
             }
             Section {
                 pastingRow
