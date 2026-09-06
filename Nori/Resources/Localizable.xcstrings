@@ -1021,16 +1021,6 @@
         }
       }
     },
-    "Hold the modifiers and tap the key again to step through clips": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "修飾キーを押したままキーをもう一度押すとクリップを順に切り替えます"
-          }
-        }
-      }
-    },
     "Hold ⌥ to remove pinned clips too": {
       "localizations": {
         "ja": {
@@ -1127,6 +1117,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "開いたまま"
+          }
+        }
+      }
+    },
+    "Keep the modifiers held and tap the key again; let go to paste": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "修飾キーを押したままキーを再度押すと次へ。離すとペーストします"
           }
         }
       }
@@ -2047,6 +2047,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "ステップ %1$lld / %2$lld"
+          }
+        }
+      }
+    },
+    "Step through clips with the shortcut": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ショートカットでクリップを送る"
           }
         }
       }

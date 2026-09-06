@@ -14,7 +14,10 @@ struct GeneralPane: View {
         Form {
             Section {
                 KeyboardShortcuts.Recorder("Open Nori", name: .togglePanel)
-                Toggle("Hold the modifiers and tap the key again to step through clips", isOn: $settings.cycleModeEnabled)
+                Toggle(isOn: $settings.cycleModeEnabled) {
+                    Text("Step through clips with the shortcut")
+                    Text("Keep the modifiers held and tap the key again; let go to paste")
+                }
             }
             Section {
                 loginItemRow
