@@ -1,0 +1,91 @@
+name: Windows
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+
+jobs:
+  core-tests:
+    name: Core tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Test
+        run: dotnet test windows/Nori.Core.Tests -c Release --verbosity minimal
+
+  windows:
+    name: Build, screenshot & package
+    runs-on: windows-latest
+    needs: core-tests
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Publish (self-contained, single file)
+        shell: pwsh
+        run: |
+          $version = ([xml](Get-Content windows/Nori.Windows/Nori.Windows.csproj)).Project.PropertyGroup.Version | Where-Object { $_ }
+          "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+          dotnet publish windows/Nori.Windows -c Release -r win-x64 --self-contained `
+            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
+            -o publish
+
+      - name: Render every panel state
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path shots | Out-Null
+          $states = @(
+            "default", "search:swift", "filter:code", "cmd", "shift",
+            "expanded:4", "ghost", "empty", "dark", "settings", "onboarding"
+          )
+          $failed = @()
+          foreach ($state in $states) {
+            $name = $state -replace ":", "-"
+            $out = "shots/$name.png"
+            $p = Start-Process -FilePath publish/Nori.exe `
+                 -ArgumentList "--state", $state, "--screenshot", $out `
+                 -PassThru -NoNewWindow
+            if (-not $p.WaitForExit(60000)) { $p.Kill(); $failed += "$state (timed out)"; continue }
+            if ($p.ExitCode -ne 0) { $failed += "$state (exit $($p.ExitCode))"; continue }
+            if (-not (Test-Path $out) -or (Get-Item $out).Length -lt 2000) { $failed += "$state (no image)"; continue }
+            Write-Host "  $name.png  $((Get-Item $out).Length) bytes"
+          }
+          if (Test-Path "$env:LOCALAPPDATA/Nori/nori.log") { Copy-Item "$env:LOCALAPPDATA/Nori/nori.log" shots/ }
+          if ($failed.Count -gt 0) { Write-Error "states failed: $($failed -join ', ')"; exit 1 }
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-screenshots
+          path: shots
+
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Compress-Archive -Path publish/Nori.exe -DestinationPath "dist/Nori-Windows-$env:VERSION.zip" -Force
+          Get-ChildItem dist
+
+      - name: Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nori-Windows
+          path: dist/*.zip
+
+      - name: Attach to the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.zip
