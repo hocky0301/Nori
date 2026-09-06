@@ -61,8 +61,17 @@ jobs:
           files: dist/Nori-*.zip
           generate_release_notes: true
           body: |
-            Ad-hoc signed build (no Apple Developer ID yet). After unzipping into /Applications, run once:
+            Nori is a clipboard history that shows every copy as what it is — text, links, code, colors, images, files.
+
+            **macOS** (26 Tahoe or later) — `Nori-x.y.z.zip`
+            Move `Nori.app` to /Applications. The build is ad-hoc signed (no Apple Developer ID yet), so run once:
 
                 xattr -d com.apple.quarantine /Applications/Nori.app
 
             Then grant Accessibility in System Settings › Privacy & Security so Nori can paste for you.
+
+            **Windows** (10 20H2 or later) — `Nori-Windows-x.y.z.zip`
+            Unzip `Nori.exe` anywhere and run it. Nothing to install; SmartScreen may warn once because the build
+            is unsigned. Press Ctrl+Shift+V to open Nori.
+
+            Everything stays on your machine: Nori has no network code.
