@@ -24,6 +24,9 @@ final class PanelModel {
     var isOpen = false
     /// Incremented when the view should scroll to `selectedID`.
     private(set) var scrollRequest = 0
+    /// Incremented when the search field should take focus and select its text (⌘F).
+    private(set) var focusSearchRequest = 0
+    func requestSearchFocus() { focusSearchRequest += 1 }
     /// Bottom toast text; nil when hidden.
     private(set) var toast: String?
     /// Ghost rows for copies that were deliberately not saved (max 5, newest first).

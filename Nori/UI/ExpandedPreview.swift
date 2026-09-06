@@ -71,33 +71,104 @@ struct ExpandedPreview: View {
 
 // MARK: - Text / code
 
+/// The clip's text is read once per row in `.task(id:)` and prepared off the main thread —
+/// a 2 MB clip or a large HTML representation never gets decoded, counted or measured inside `body`.
 struct TextPreview: View {
     let model: PanelModel
     let row: ClipRow
 
-    private var monospaced: Bool { row.kind == .code }
-
-    private var fullText: String {
-        (model.history.plainText(id: row.id) ?? row.title).replacingOccurrences(of: "\t", with: "    ")
+    /// What the expanded card shows, ready to lay out.
+    struct Prepared: Equatable, Sendable {
+        var shown: String
+        var truncated: Bool
+        var height: CGFloat
     }
 
+    /// The representation the store handed over; decoding happens off the main thread.
+    enum Source: Sendable {
+        case utf8(Data)
+        case rtf(Data)
+        case text(String)
+    }
+
+    @State private var prepared: Prepared?
+
+    private var monospaced: Bool { row.kind == .code }
+
     var body: some View {
-        let text = fullText
-        let truncated = text.count > SelectableTextView.maxCharacters
-        let shown = truncated ? String(text.prefix(SelectableTextView.maxCharacters)) + "…" : text
-        let height = min(
-            SelectableTextView.measuredHeight(of: shown, monospaced: monospaced, width: PanelMetrics.cardContentWidth - 4),
-            PanelMetrics.previewMaxHeight - (truncated ? 18 : 0)
-        )
         VStack(alignment: .leading, spacing: 4) {
-            SelectableTextView(text: shown, monospaced: monospaced)
-                .frame(height: height)
-            if truncated {
-                Text("Showing first \(SelectableTextView.maxCharacters.formatted()) characters")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.tertiary)
+            if let prepared {
+                SelectableTextView(text: prepared.shown, monospaced: monospaced)
+                    .frame(height: prepared.height)
+                if prepared.truncated {
+                    Text("Showing first \(SelectableTextView.maxCharacters.formatted()) characters")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.tertiary)
+                }
+            } else {
+                Color.clear
+                    .frame(height: Self.placeholderHeight(lineCount: row.lineCount, monospaced: monospaced))
             }
         }
+        .task(id: row.id) { await load() }
+    }
+
+    /// Roughly the height the text will take, from the line count the row already carries.
+    nonisolated static func placeholderHeight(lineCount: Int, monospaced: Bool) -> CGFloat {
+        let lineHeight: CGFloat = monospaced ? 15 : 16
+        return min(CGFloat(max(lineCount, 1)) * lineHeight + 4, PanelMetrics.previewMaxHeight)
+    }
+
+    private func load() async {
+        if let cached = PreviewTextCache.shared.prepared(for: row.id) {
+            prepared = cached
+            return
+        }
+        let source = loadSource()
+        let monospaced = monospaced
+        let result = await Task.detached(priority: .userInitiated) {
+            Self.prepare(source, monospaced: monospaced, width: PanelMetrics.cardContentWidth - 4)
+        }.value
+        guard !Task.isCancelled else { return }
+        PreviewTextCache.shared.store(result, for: row.id)
+        prepared = result
+    }
+
+    /// The best plain-text representation, faulting only the blob that is needed.
+    private func loadSource() -> Source {
+        guard let item = model.history.item(id: row.id) else { return .text(row.title) }
+        if let data = item.data(for: PasteboardType.utf8PlainText) { return .utf8(data) }
+        if let data = item.data(for: PasteboardType.rtf) { return .rtf(data) }
+        if let data = item.data(for: PasteboardType.html),
+           // The HTML importer is WebKit-backed and main-thread only; it runs here, never in `body`.
+           let attributed = NSAttributedString(html: data, documentAttributes: nil) {
+            return .text(attributed.string)
+        }
+        return .text(row.title)
+    }
+
+    /// Decode, truncate to `SelectableTextView.maxCharacters` and measure. Runs off the main thread.
+    nonisolated static func prepare(_ source: Source, monospaced: Bool, width: CGFloat) -> Prepared {
+        let text: String
+        switch source {
+        case let .utf8(data): text = String(data: data, encoding: .utf8) ?? String(decoding: data, as: UTF8.self)
+        case let .rtf(data): text = NSAttributedString(rtf: data, documentAttributes: nil)?.string ?? ""
+        case let .text(string): text = string
+        }
+        return prepare(text: text, monospaced: monospaced, width: width)
+    }
+
+    nonisolated static func prepare(text: String, monospaced: Bool, width: CGFloat) -> Prepared {
+        let expanded = text.replacingOccurrences(of: "\t", with: "    ")
+        // Compare by UTF-8 length first: a 2 MB clip is truncated without counting its graphemes.
+        let truncated = expanded.utf8.count > SelectableTextView.maxCharacters
+            && expanded.count > SelectableTextView.maxCharacters
+        let shown = truncated ? String(expanded.prefix(SelectableTextView.maxCharacters)) + "…" : expanded
+        let height = min(
+            SelectableTextView.measuredHeight(of: shown, monospaced: monospaced, width: width),
+            PanelMetrics.previewMaxHeight - (truncated ? 18 : 0)
+        )
+        return Prepared(shown: shown, truncated: truncated, height: height)
     }
 }
 
@@ -215,27 +286,43 @@ struct ImagePreview: View {
 
 // MARK: - File
 
+/// Every path, one per line; the list scrolls inside the card once it would push the card past
+/// `PanelMetrics.expandedCardMaxHeight`, so the expand-scroll projection stays an upper bound.
 struct FilePreview: View {
     let model: PanelModel
     let row: ClipRow
 
+    @State private var listHeight: CGFloat?
+
+    /// Room for the path list: the preview cap minus the button and the gap above it.
+    static let listMaxHeight = PanelMetrics.previewMaxHeight - 26 - 8
+    private static let lineSpacing: CGFloat = 3
+    private static let estimatedLineHeight: CGFloat = 15
+
+    /// Until the list has been measured, the card grows to a line-count estimate.
+    nonisolated static func height(forMeasured measured: CGFloat?, count: Int) -> CGFloat {
+        let estimate = CGFloat(max(count, 1)) * estimatedLineHeight + CGFloat(max(count - 1, 0)) * lineSpacing
+        return min(measured ?? estimate, listMaxHeight)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            VStack(alignment: .leading, spacing: 3) {
-                ForEach(Array(row.fileURLs.prefix(12).enumerated()), id: \.offset) { _, url in
-                    Text(FileCaption.homeRelative(url))
-                        .font(.code)
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
+            ScrollView(.vertical) {
+                VStack(alignment: .leading, spacing: Self.lineSpacing) {
+                    ForEach(Array(row.fileURLs.enumerated()), id: \.offset) { _, url in
+                        Text(FileCaption.homeRelative(url))
+                            .font(.code)
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
                 }
-                if row.fileURLs.count > 12 {
-                    Text("and \(row.fileURLs.count - 12) more")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.tertiary)
-                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .textSelection(.enabled)
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { listHeight = $0 }
             }
-            .textSelection(.enabled)
+            .scrollIndicators(.automatic)
+            .frame(height: Self.height(forMeasured: listHeight, count: row.fileURLs.count))
             PreviewActionButton(title: "Reveal in Finder", key: "⌘R") { model.actions.reveal(row) }
         }
     }

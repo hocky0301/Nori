@@ -3,12 +3,31 @@ import SwiftUI
 /// Nori's own confirmation, inside the panel: Esc cancels, ↩ clears, ⌥ includes pinned.
 struct ClearConfirmation: View {
     let model: PanelModel
+    /// Unpinned persisted clips.
     let count: Int
     let pinnedCount: Int
+    /// Masked secrets in the vault; clearing removes them too, so they count.
+    let sensitiveCount: Int
+
+    init(model: PanelModel, count: Int, pinnedCount: Int, sensitiveCount: Int = 0) {
+        self.model = model
+        self.count = count
+        self.pinnedCount = pinnedCount
+        self.sensitiveCount = sensitiveCount
+    }
 
     @Environment(\.panelTheme) private var theme
 
     private var includePinned: Bool { model.modifierBits.contains(.keepOpen) }
+
+    /// How many rows disappear on Clear: unpinned clips, masked secrets, and pinned clips while ⌥ is held.
+    static func removedCount(count: Int, pinnedCount: Int, sensitiveCount: Int, includePinned: Bool) -> Int {
+        count + sensitiveCount + (includePinned ? pinnedCount : 0)
+    }
+
+    private var removedCount: Int {
+        Self.removedCount(count: count, pinnedCount: pinnedCount, sensitiveCount: sensitiveCount, includePinned: includePinned)
+    }
 
     var body: some View {
         ZStack {
@@ -36,6 +55,7 @@ struct ClearConfirmation: View {
                     FlatButton(title: includePinned ? "Clear Including Pinned" : "Clear", key: "↩", prominent: true) {
                         model.clearHistory(includingPinned: includePinned)
                     }
+                    .disabled(removedCount == 0)
                 }
                 .padding(.top, 2)
                 if !includePinned, pinnedCount > 0 {
@@ -60,18 +80,22 @@ struct ClearConfirmation: View {
     }
 
     private var message: String {
-        let clips = count == 1 ? String(localized: "1 clip") : String(localized: "\(count) clips")
+        Self.message(count: count, pinnedCount: pinnedCount, sensitiveCount: sensitiveCount, includePinned: includePinned)
+    }
+
+    /// "3 clips will be removed. Pinned clips are kept." — secrets count as clips; "1 clip" stays singular.
+    static func message(count: Int, pinnedCount: Int, sensitiveCount: Int, includePinned: Bool) -> String {
+        let clips = count + sensitiveCount
         if includePinned {
-            let pinned = pinnedCount == 1 ? String(localized: "1 pinned clip") : String(localized: "\(pinnedCount) pinned clips")
-            return String(localized: "\(clips) and \(pinned) will be removed. This can't be undone.")
+            return String(inflected: "^[\(clips) clip](inflect: true) and ^[\(pinnedCount) pinned clip](inflect: true) will be removed. This can't be undone.")
         }
         return pinnedCount > 0
-            ? String(localized: "\(clips) will be removed. Pinned clips are kept.")
-            : String(localized: "\(clips) will be removed. This can't be undone.")
+            ? String(inflected: "^[\(clips) clip](inflect: true) will be removed. Pinned clips are kept.")
+            : String(inflected: "^[\(clips) clip](inflect: true) will be removed. This can't be undone.")
     }
 }
 
-/// A flat capsule button with its key printed inside; accent when prominent.
+/// A flat capsule button with its key printed inside; accent when prominent; dimmed when disabled.
 struct FlatButton: View {
     let title: LocalizedStringKey
     let key: String
@@ -79,6 +103,7 @@ struct FlatButton: View {
     let action: () -> Void
 
     @State private var hovered = false
+    @Environment(\.isEnabled) private var isEnabled
 
     var body: some View {
         Button(action: action) {
@@ -100,6 +125,7 @@ struct FlatButton: View {
         }
         .buttonStyle(.plain)
         .focusable(false)
+        .opacity(isEnabled ? 1 : 0.4)
         .onHover { hovered = $0 }
         .animation(.easeInOut(duration: 0.1), value: hovered)
     }

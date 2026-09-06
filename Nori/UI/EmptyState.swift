@@ -4,7 +4,8 @@ import SwiftUI
 struct EmptyState: View {
     enum Kind {
         case noHistory(hotkey: String)
-        case noMatches(query: String)
+        /// `pastes` is false when Accessibility is not trusted and ↩ can only copy the typed text.
+        case noMatches(query: String, pastes: Bool)
         case filterEmpty(PanelFilter)
     }
 
@@ -33,7 +34,7 @@ struct EmptyState: View {
                 }
                 .padding(.top, 6)
 
-            case let .noMatches(query):
+            case let .noMatches(query, pastes):
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 32, weight: .light))
                     .symbolRenderingMode(.hierarchical)
@@ -46,9 +47,15 @@ struct EmptyState: View {
                     .truncationMode(.middle)
                 HStack(spacing: 5) {
                     Keycap(text: "↩")
-                    Text("pastes “\(query)” as text")
-                        .lineLimit(1)
-                        .truncationMode(.middle)
+                    Group {
+                        if pastes {
+                            Text("pastes “\(query)” as text")
+                        } else {
+                            Text("copies “\(query)” as text")
+                        }
+                    }
+                    .lineLimit(1)
+                    .truncationMode(.middle)
                     Text("·").foregroundStyle(.tertiary)
                     Keycap(text: "⌃U")
                     Text("clears")

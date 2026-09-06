@@ -21,14 +21,71 @@ struct CardWell: View {
 /// Per-kind card anatomy (§3.3): well + title block, from a `ClipRow` value.
 struct CardContent: View {
     let row: ClipRow
+    /// Matched runs in `row.title` for the current query (from the model, never re-searched here).
+    let titleRanges: [Range<String.Index>]
     let query: String
+
+    init(row: ClipRow, titleRanges: [Range<String.Index>] = [], query: String = "") {
+        self.row = row
+        self.titleRanges = titleRanges
+        self.query = query
+    }
+
+    private var isSearching: Bool { !query.trimmingCharacters(in: .whitespaces).isEmpty }
+
+    /// The row matched only through its full text (a later line, OCR text, host or app name) —
+    /// nothing on the card lights up, so say why it is listed.
+    private var matchesContentOnly: Bool {
+        isSearching && !row.isSensitive && row.kind != .image
+            && primaryMatch.ranges.isEmpty && (secondaryMatch?.ranges.isEmpty ?? true)
+    }
+
+    /// The card's first line with the model's matched runs mapped onto it.
+    private var primaryMatch: HighlightedText.Mapped {
+        switch row.kind {
+        case .text: HighlightedText.displayTitle(row.title, ranges: titleRanges)
+        case .code: HighlightedText.codeLines(row.title, ranges: titleRanges)
+        case .link: mapped(row.linkHost ?? row.displayTitle)
+        case .color: mapped(row.colorHex.flatMap(ColorValue.init(hex:))?.hexString ?? row.displayTitle)
+        case .image: HighlightedText.Mapped(text: ImageCaption.text(for: row), ranges: [])
+        case .file: mapped(FileCaption.name(for: row))
+        }
+    }
+
+    /// The link's path line, when there is one.
+    private var secondaryMatch: HighlightedText.Mapped? {
+        guard row.kind == .link, let path = row.linkPathAndQuery else { return nil }
+        return mapped(path)
+    }
+
+    /// `display` with the model's ranges when it occurs inside the title; otherwise (a normalized
+    /// color, a decoded link path) a substring search over the displayed text.
+    private func mapped(_ display: String) -> HighlightedText.Mapped {
+        guard isSearching else { return HighlightedText.Mapped(text: display, ranges: []) }
+        if let mapped = HighlightedText.substring(display, of: row.title, ranges: titleRanges) {
+            return mapped
+        }
+        return HighlightedText.Mapped(text: display, ranges: HighlightedText.queryRanges(in: display, query: query))
+    }
 
     var body: some View {
         HStack(alignment: .center, spacing: PanelMetrics.wellGap) {
             well
-            titleBlock
-                .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: 2) {
+                titleBlock
+                if matchesContentOnly, row.kind != .text {
+                    contentMatchCaption
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+
+    private var contentMatchCaption: some View {
+        Text("Matches content")
+            .font(.cardSecondary)
+            .foregroundStyle(.tertiary)
+            .lineLimit(1)
     }
 
     // MARK: Well
@@ -83,12 +140,13 @@ struct CardContent: View {
         if row.lineCount > 1 || row.isRichText { parts.append(String(localized: "\(row.characterCount.formatted()) chars")) }
         if row.isRichText { parts.append(String(localized: "Rich text")) }
         if row.isTruncated { parts.append(String(localized: "Truncated")) }
+        if matchesContentOnly { parts.append(String(localized: "Matches content")) }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
     private var textTitle: some View {
         VStack(alignment: .leading, spacing: 2) {
-            MatchText(text: row.displayTitle, query: query)
+            MatchText(primaryMatch)
                 .font(.cardTitle)
                 .foregroundStyle(.primary)
                 .lineLimit(textCaption == nil ? 2 : 1)
@@ -104,13 +162,13 @@ struct CardContent: View {
 
     private var linkTitle: some View {
         VStack(alignment: .leading, spacing: 2) {
-            MatchText(text: row.linkHost ?? row.displayTitle, query: query)
+            MatchText(primaryMatch)
                 .font(.linkHost)
                 .foregroundStyle(.primary)
                 .lineLimit(1)
                 .truncationMode(.tail)
-            if let path = row.linkPathAndQuery {
-                MatchText(text: path, query: query)
+            if let secondaryMatch {
+                MatchText(secondaryMatch)
                     .font(.cardSecondary)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -120,7 +178,7 @@ struct CardContent: View {
     }
 
     private var codeTitle: some View {
-        MatchText(text: row.codeLines.joined(separator: "\n"), query: query)
+        MatchText(primaryMatch)
             .font(.code)
             .foregroundStyle(.primary)
             .lineLimit(2)
@@ -131,7 +189,7 @@ struct CardContent: View {
     private var colorTitle: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             let value = row.colorHex.flatMap(ColorValue.init(hex:))
-            MatchText(text: value?.hexString ?? row.displayTitle, query: query)
+            MatchText(primaryMatch)
                 .font(.colorHex)
                 .foregroundStyle(.primary)
                 .lineLimit(1)
@@ -154,13 +212,14 @@ struct CardContent: View {
     }
 
     private var fileTitle: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            MatchText(text: FileCaption.name(for: row), query: query)
+        let typeDescription = row.fileURLs.first.flatMap { AppIconCache.shared.typeDescription(for: $0) }
+        return VStack(alignment: .leading, spacing: 2) {
+            MatchText(primaryMatch)
                 .font(.cardTitle)
                 .foregroundStyle(.primary)
                 .lineLimit(1)
                 .truncationMode(.middle)
-            if let detail = FileCaption.detail(for: row) {
+            if let detail = FileCaption.detail(for: row, typeDescription: typeDescription) {
                 Text(detail)
                     .font(.cardSecondary)
                     .foregroundStyle(.secondary)
@@ -212,13 +271,20 @@ struct ImageThumbnail: View {
 }
 
 /// The real Finder icon; 2+ files show the first icon with a "+n" badge.
+///
+/// Rendering never stats the path: a cached icon is used when there is one, otherwise the type's
+/// generic icon shows while the Finder icon is resolved in the background.
 struct FileWell: View {
     let urls: [URL]
 
+    @State private var resolvedIcon: NSImage?
+
+    private var path: String? { urls.first?.path(percentEncoded: false) }
+
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
-            if let first = urls.first {
-                Image(nsImage: AppIconCache.shared.fileIcon(path: first.path(percentEncoded: false)))
+            if let first = urls.first, let path {
+                Image(nsImage: resolvedIcon ?? AppIconCache.shared.cachedFileIcon(path: path) ?? AppIconCache.shared.typeIcon(for: first))
                     .resizable()
                     .interpolation(.high)
                     .frame(width: PanelMetrics.wellSize, height: PanelMetrics.wellSize)
@@ -236,6 +302,11 @@ struct FileWell: View {
             }
         }
         .frame(width: PanelMetrics.wellSize, height: PanelMetrics.wellSize)
+        .task(id: path) {
+            guard let path else { return }
+            let icon = await AppIconCache.shared.fileIcon(path: path)
+            if !Task.isCancelled { resolvedIcon = icon }
+        }
     }
 }
 
@@ -261,9 +332,14 @@ enum FileCaption {
 
     /// "~/Downloads · PDF document"
     static func detail(for row: ClipRow) -> String? {
+        detail(for: row, typeDescription: row.fileURLs.first.flatMap(typeDescription(for:)))
+    }
+
+    /// `typeDescription` is the first file's type, looked up by the caller (cached in `AppIconCache`).
+    static func detail(for row: ClipRow, typeDescription: String?) -> String? {
         guard let first = row.fileURLs.first else { return nil }
         var parts = [homeRelative(first.deletingLastPathComponent())]
-        if row.fileURLs.count == 1, let description = typeDescription(for: first) {
+        if row.fileURLs.count == 1, let description = typeDescription {
             parts.append(description)
         }
         return parts.joined(separator: " · ")
@@ -278,12 +354,24 @@ enum FileCaption {
         return path.count > 1 && path.hasSuffix("/") ? String(path.dropLast()) : path
     }
 
-    static func typeDescription(for url: URL) -> String? {
-        if let type = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType {
-            return type.localizedDescription ?? type.preferredFilenameExtension?.uppercased()
-        }
+    /// The type a path implies — from its extension (or trailing slash) only, so a card can be drawn
+    /// while the volume the file lives on is unreachable.
+    static func contentType(for url: URL) -> UTType {
         let ext = url.pathExtension
-        guard !ext.isEmpty, let type = UTType(filenameExtension: ext) else { return nil }
-        return type.localizedDescription ?? ext.uppercased()
+        if url.hasDirectoryPath {
+            // A directory with a known package extension ("Xcode.app" → Application), else a folder.
+            guard !ext.isEmpty, let package = UTType(filenameExtension: ext, conformingTo: .package), !package.isDynamic else {
+                return .folder
+            }
+            return package
+        }
+        return ext.isEmpty ? .data : UTType(filenameExtension: ext) ?? .data
+    }
+
+    /// "PDF document", "Folder", or the bare extension for types the system has no name for.
+    static func typeDescription(for url: URL) -> String? {
+        let ext = url.pathExtension
+        if ext.isEmpty, !url.hasDirectoryPath { return nil }
+        return contentType(for: url).localizedDescription ?? ext.uppercased()
     }
 }
