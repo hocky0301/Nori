@@ -1,5 +1,5 @@
 ---
-title: "macOS 26 でクリップボード履歴アプリをゼロから作って踏んだ落とし穴 9 つ ── NSPasteboard・非アクティブ化パネル・SwiftData・Swift 6"
+title: "macOS 26 でクリップボード履歴アプリをゼロから作って踏んだ落とし穴 10 個 ── NSPasteboard・非アクティブ化パネル・SwiftData・Swift 6"
 emoji: "🧷"
 type: "tech"
 topics: ["macos", "swift", "swiftui", "swiftdata"]
@@ -7,7 +7,7 @@ published: false
 ---
 
 Maccy（macOS 定番のクリップボード履歴アプリ、MIT）のソースを全部読んでから、**同じ問題を解く別のアプリ「Nori（糊）」を Swift 6 / SwiftUI / SwiftData でゼロから書きました**。
-この記事は「作ってみた」ではなく、その過程で **実際に踏んで、実際に直した落とし穴 9 つ** と、Maccy と違う判断をした 3 箇所の記録です。
+この記事は「作ってみた」ではなく、その過程で **実際に踏んで、実際に直した落とし穴 10 個** と、Maccy と違う判断をした 3 箇所の記録です。
 macOS でクリップボード系ツールを書く人、Swift 6 の strict concurrency で AppKit を触る人、GUI アプリの動作確認をスクリプトから自動で回したい人に向けています。
 
 - リポジトリ: https://github.com/hocky0301/Nori （MIT）
@@ -42,7 +42,7 @@ Maccy 2.7.1 は 9,637 行ありますが、アプリの本体は 3 ファイル�
 
 つまり **エッジケースの塊は取り込みルールで、UI は薄い**。だから「UI を綺麗にした別アプリ」を作るなら、取り込みルールは Maccy の判断を全部引き継ぎ、UI と操作体系だけ設計し直すのが正解だと判断しました。Nori の `ClipClassifier.swift` は Maccy の `Clipboard.swift` の判断をテスト付きで純関数に写したものです。
 
-## 踏んだ落とし穴 9 つ
+## 踏んだ落とし穴 10 個
 
 ### 1. `@main` を NSApplicationDelegate に付けても delegate は入らない
 
@@ -185,6 +185,12 @@ pendingClassification = Task(priority: .userInitiated) { [weak self] in
     self?.deliver(outcome, capturedAt: snapshot.capturedAt)
 }
 ```
+
+### 10. `charactersIgnoringModifiers` は Shift を無視しない
+
+「⇧⌘1 でプレーンテキストとして貼る」を、`event.charactersIgnoringModifiers` が `"1"` を返す前提で `Int(char)` にかけていました。ところがこのプロパティが無視するのは ⌘ と ⌥ だけで、**Shift は反映されます**。US 配列で ⇧⌘1 を押すと `"!"` が返り、数字として解釈されず、ショートカットが無音で効かない。JIS 配列では別の記号になるので、さらに混乱します。
+
+数字キーは文字ではなく **キーコード**（kVK_ANSI_1…9 = 18, 19, 20, 21, 23, 22, 26, 28, 25。テンキーは 83〜92）で判定するのが正解でした。これもコードレビューで見つかったもので、テストは「⇧付きの数字イベント」を合成して固定しています。
 
 ## Maccy と違う判断をした 3 箇所
 
