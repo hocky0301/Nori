@@ -5,14 +5,21 @@
 <h1 align="center">Nori</h1>
 
 <p align="center">
-  A clipboard history for macOS 26 that shows every copy as what it is.<br>
+  A clipboard history for macOS and Windows that shows every copy as what it is.<br>
   <em>糊（のり）= paste. Built from scratch, inspired by <a href="https://github.com/p0deje/Maccy">Maccy</a>.</em>
+</p>
+
+<p align="center">
+  <a href="https://github.com/hocky0301/Nori/releases/latest"><b>⬇︎ Download for macOS</b></a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/hocky0301/Nori/releases/latest"><b>⬇︎ Download for Windows</b></a>
 </p>
 
 <p align="center">
   <a href="https://github.com/hocky0301/Nori/actions/workflows/ci.yml"><img src="https://github.com/hocky0301/Nori/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/hocky0301/Nori/releases/latest"><img src="https://img.shields.io/github/v/release/hocky0301/Nori?display_name=tag" alt="Release"></a>
   <img src="https://img.shields.io/badge/macOS-26%2B-black" alt="macOS 26+">
+  <img src="https://img.shields.io/badge/Windows-10%2F11-0078D4" alt="Windows 10/11">
   <img src="https://img.shields.io/badge/Swift-6-orange" alt="Swift 6">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT"></a>
 </p>
@@ -30,7 +37,7 @@ Press **⌘⇧V** anywhere. A glass panel opens at your pointer with everything 
 - **Stable numbers.** Pinned clips sit first and keep their ⌘1…⌘n forever.
 - **Visible privacy.** Anything that looks like a secret (API keys, tokens, private keys, card numbers) is masked, kept in memory only and forgotten after ten minutes. Copies from password managers are never recorded. When something was deliberately not saved, a small ghost row tells you why.
 - **Honest permissions.** Nori pastes by pressing ⌘V for you, which needs Accessibility. Until you grant it, ↩ visibly becomes *Copy* and the first hint chip is the fix.
-- **Nothing leaves your Mac.** No network code at all. History lives in `~/Library/Application Support/Nori`.
+- **Nothing leaves your machine.** No network code at all. History lives in `~/Library/Application Support/Nori` (macOS) or `%LOCALAPPDATA%\Nori` (Windows).
 - **English and Japanese** UI, following your system language.
 
 <table>
@@ -46,24 +53,39 @@ Press **⌘⇧V** anywhere. A glass panel opens at your pointer with everything 
 
 ## Install
 
-Requires **macOS 26 Tahoe** or later.
+Both builds come from the same [release](https://github.com/hocky0301/Nori/releases/latest).
 
-1. Download `Nori-x.y.z.zip` from the [latest release](https://github.com/hocky0301/Nori/releases/latest) and move `Nori.app` to `/Applications`.
+### macOS 26 Tahoe or later
+
+1. Download `Nori-x.y.z.zip` and move `Nori.app` to `/Applications`.
 2. The build is ad-hoc signed (no Apple Developer ID yet), so clear the quarantine flag once:
    ```bash
    xattr -d com.apple.quarantine /Applications/Nori.app
    ```
 3. Launch Nori. The welcome flow lets you pick the hotkey and grant **Accessibility** (System Settings › Privacy & Security), which is what lets Nori paste for you.
 
+### Windows 10 20H2 or later
+
+1. Download `Nori-Windows-x.y.z.zip` and unzip `Nori.exe` anywhere.
+2. Run it. Nori lives in the tray; press **Ctrl+Shift+V** to open it. SmartScreen may warn once because the
+   build is unsigned — choose *More info › Run anyway*.
+3. The welcome flow lets you pick the shortcut and decide whether Nori starts with Windows. No permission is
+   needed to paste on Windows.
+
+See [windows/README.md](windows/README.md) for how the Windows version is built and verified.
+
 Or build it yourself:
 
 ```bash
-brew install xcodegen
+brew install xcodegen                      # macOS
 git clone https://github.com/hocky0301/Nori.git && cd Nori
 xcodegen generate && open Nori.xcodeproj   # or: scripts/release.sh
+dotnet build windows/Nori.sln -c Release   # Windows (builds anywhere, runs on Windows)
 ```
 
 ## Keyboard
+
+The Windows shortcuts are the same with Ctrl in place of ⌘ (see [windows/README.md](windows/README.md)).
 
 | Key | Action |
 |---|---|
@@ -116,6 +138,9 @@ scripts/dev-drive.sh shot out.png       # screenshot the panel
 ```
 
 Swift 6 with strict concurrency, SwiftUI + AppKit, SwiftData. The only dependency is [KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts).
+
+The Windows version is C# / .NET 10 with WPF, sharing no code but the design: its `Nori.Core` is a port of the
+same classification, privacy and search rules, with the test suite ported alongside it.
 
 ## Credits
 
