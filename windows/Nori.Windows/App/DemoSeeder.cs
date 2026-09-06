@@ -34,7 +34,7 @@ internal static class DemoSeeder
             Text("#5E5CE6", Figma),
             Text("public sealed record ClipRow\n{\n    public required Guid Id { get; init; }\n    public required ClipKind Kind { get; init; }\n}", Code),
             Text("Nori keeps the history of what you copy and lets you find it again in a keystroke. Everything stays on this PC.", Notepad),
-            Text("kamil.ijuin@example.com", Outlook),
+            Text("hello@example.com", Outlook),
             Text("rgb(255, 122, 89)", Chrome),
             Text("Meeting moved to 15:30 — bring the Q3 numbers and the updated roadmap.", Slack),
             Text("git rebase -i HEAD~3", Terminal),

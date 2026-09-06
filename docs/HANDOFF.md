@@ -28,6 +28,8 @@ macOS と Windows のクリップボード履歴アプリ。コピーしたも�
 | ホットキー | ⇧⌘V | Ctrl+Shift+V |
 | 規模 | app 7,722 行 / test 2,902 行（193 ケース） | 合計 9,602 行（テスト 179 ケース） |
 
+※ 行数・テスト数は 2026-09-06 時点のスナップショット。`scripts/dev-build.sh test` と `dotnet test windows/Nori.Core.Tests` を実行すれば現在値が出る。
+
 ---
 
 ## 2. 5 分で動かす
@@ -71,6 +73,20 @@ Nori.exe --state default --screenshot shots/default.png
 
 ---
 
+## 2.5 やる前に必ず読む「引き返せない操作」
+
+このリポジトリは**公開済み**で、CI が実弾を撃つ。次の操作は取り消せない。
+
+| 操作 | 何が起きるか |
+|---|---|
+| **`v` で始まる git タグを push**（`git push origin v0.1.1` / `git push --tags`） | `ci.yml` と `windows.yml` の release ジョブが発火し、**公開リポジトリに GitHub Release を即座に公開**する（未署名 zip 2 本 + 自動生成リリースノート付き）。Watcher に通知が飛ぶ。実際に v0.1.0 がこれで公開されている。**リリースを切る意図があるときだけ**打つこと。CI の動作確認をしたいだけなら `test-v1` のような `v*` に一致しない名前を使う。 |
+| **`dev-drive.sh` を使わずにアプリを起動**（Xcode の ▶︎、`open Nori.app`、ビルド成果物のダブルクリック） | `--in-memory` が付かないので**本物のクリップボード監視が始まり**、`~/Library/Application Support/Nori` の実データに開発中のゴミが混ざる。さらに初回は本物の Accessibility 許可ダイアログが出る。見た目の確認は必ず `scripts/dev-drive.sh launch --seed-demo` を使う（`--in-memory` が自動で付く）。 |
+| `scripts/release.sh` | Release ビルドを作り `dist/` に zip を吐く。公開はしないが、`DerivedData` を汚す。 |
+| `scripts/dev-screenshots.sh docs/screenshots` | README 用の画像を**上書き**する。アプリを起動し、マウスカーソルを一時的に画面隅へ動かす。UI を変えた後にだけ実行する。 |
+| 設定画面の「ログイン項目」トグル / オンボーディング最終ステップ | `SMAppService` に**本当に登録**される。検証中は触らない。 |
+
+---
+
 ## 3. コードの地図
 
 ### macOS（`Nori/`）
@@ -91,7 +107,7 @@ Nori.exe --state default --screenshot shots/default.png
 
 ### Windows（`windows/`）
 
-- `Nori.Core/` — プラットフォーム非依存。macOS 版からの移植（`ClipClassifier`, `KindDetector`, `SecretDetector`, `HistorySearch`, `PanelSections`, `ActionGrammar`, `HintBarModel`, `HistoryStore`, `SensitiveVault`）。Windows 型を一切参照しないので Mac でもテストが走る。
+- `Nori.Core/` — プラットフォーム非依存。macOS 版からの移植（`PanelModel`, `ClipClassifier`, `KindDetector`, `SecretDetector`, `HistorySearch`, `PanelSections`, `ActionGrammar`, `HintBarModel`, `HistoryStore`, `SensitiveVault`）。Windows 型を一切参照しないので Mac でもテストが走る。
 - `Nori.Core.Tests/` — xUnit 179 ケース（Swift 側のテストを移植）。
 - `Nori.Windows/` — WPF アプリ本体。`App/App.cs` が合流点、`Panel/PanelController.cs` がパネル、`Native/` が P/Invoke。
 
@@ -108,7 +124,7 @@ Nori.exe --state default --screenshot shots/default.png
 2. **秘密はディスクに書かない。**
    API キー・トークン・秘密鍵・Luhn を通るカード番号は `SecretDetector` が検出し、`SensitiveVault`
    （メモリのみ、10 分で消滅、検索対象外、ピン留め不可）へ。エントロピー判定は**入れないこと**
-   （git SHA・UUID・base64 が全部隠れて実用にならない。誤検知テストが 40 件以上ある）。
+   （git SHA・UUID・base64 が全部隠れて実用にならない。誤検知テストが macOS 16 件・Windows 29 件ある）。
 
 3. **取り込み判定は純関数。**
    `ClipClassifier.classify(snapshot, policy)` は `PasteboardSnapshot`（値）を受けて結果を返すだけ。
@@ -149,7 +165,8 @@ Nori.exe --state default --screenshot shots/default.png
 
 - テスト: macOS **193**、Windows **179**。両方グリーン。CI は push ごとに両方走る。
 - 多角レビュー（5 観点 × 3 名の敵対検証）を実施済み。確認された欠陥 **37 件**は全部修正済み
-  （報告 39 件のうち 2 件は重複）。修正内容はコミット `b3e1396` / `0aac213` と、その後の追随コミットにある。
+  （報告 39 件のうち F14・F15 が F1・F2 と重複）。**全 39 件の一覧と対応状況は `docs/REVIEW_LOG.md`**。
+  修正はコミット `b3e1396`（core 側）/ `0aac213`（UI 側）とその前後にある。
 - 未検証の領域（正直に）:
   - **Windows アプリの実機での手触り**。CI のスクリーンショットとロジックテストまでしか見ていない。
     トレイ・ホットキー・クリップボード監視・貼り付けの実挙動は**人間の確認が必要**。
@@ -190,10 +207,11 @@ Nori.exe --state default --screenshot shots/default.png
 |---|---|
 | `docs/DESIGN.md` | 設計の原典。パネル寸法・カード構造・キー割り当て・取り込み規則の根拠。**実装との差分は冒頭の表** |
 | `docs/WINDOWS_DESIGN.md` | Windows 版の設計指示書。差分は冒頭 |
+| `docs/REVIEW_LOG.md` | リリース前レビューで確定した 39 件の一覧と対応状況（実質 37 件、全部修正済み） |
 | `docs/zenn/nori-clipboard-manager.md` | 技術記事の下書き（`published: false`、投稿は所有者が行う） |
 | `windows/README.md` | Windows 版のビルドと検証手順 |
 | `README.md` | 利用者向け |
-| `_reference/` | Maccy 2.7.1 の配布物（**git 管理外**。参照用に置いてあるだけ） |
+| `_reference/` | Maccy 2.7.1 の配布物（**git 管理外**なので clone しても存在しない）。`docs/DESIGN.md` は `Maccy/...` のパスを根拠として引用するので、裏を取りたいときは https://github.com/p0deje/Maccy の tag 2.7.1 を取得してここに展開する。無くても実装作業に支障はない |
 
 ---
 

@@ -134,7 +134,7 @@ Mouse: hover selects, click pastes, ⇧/⌥/⌘-click add the same bits, right-c
 - **One grammar, two consumers.** `ActionGrammar.resolve(base, bits, capabilities)` decides what a key does; the hint bar and the context menu render from the same function, so what is printed on screen is by construction what happens.
 - **Liquid Glass, once.** The panel is the only glass surface; cards, chips and keycaps are flat fills over it, which keeps 500 rows scrolling at full frame rate.
 
-A longer write-up (in Japanese) is on Zenn: <!-- zenn link -->
+A longer write-up in Japanese is drafted in [docs/zenn/](docs/zenn/nori-clipboard-manager.md).
 
 ## Development
 

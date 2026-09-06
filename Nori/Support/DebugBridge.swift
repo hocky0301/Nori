@@ -112,7 +112,7 @@ final class DebugBridge {
             }
             """, app: "com.apple.dt.Xcode"),
             text("Nori keeps the history of what you copy and lets you find it again in a keystroke. Everything stays on your Mac.", app: "com.apple.Notes"),
-            text("kamil.ijuin@example.com", app: "com.apple.mail"),
+            text("hello@example.com", app: "com.apple.mail"),
             text("rgb(255, 122, 89)", app: "com.apple.Safari"),
             text("Meeting moved to 15:30 — bring the Q3 numbers and the updated roadmap.", app: "com.tinyspeck.slackmacgap"),
             text("git rebase -i HEAD~3", app: "com.apple.Terminal"),

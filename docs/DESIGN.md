@@ -15,6 +15,7 @@
 > | ヒントバー既定 | 7 チップ | **5 チップ**（⌥↩ と ⌘↩ は修飾キー押下時に表示） | 同上。日本語だと横幅も足りない |
 > | ⌘1–9 の表示切替 | 設定で切替可 | 常時表示（設定を削除） | 同上 |
 > | Windows 版 | 記載なし | `docs/WINDOWS_DESIGN.md` を参照 | 後から追加 |
+> | パネル styleMask | `[.nonactivatingPanel, .fullSizeContentView]` | `.borderless` を追加 | タイトルバー領域を完全に消すため |
 
 # Nori v1 — Definitive Build Spec
 
@@ -307,7 +308,7 @@ Not in v1: `IsSecureEventInputEnabled()` gate (Terminal/iTerm "Secure Keyboard E
 `com.apple.linkpresentation.metadata`, `com.apple.WebKit.custom-pasteboard-data`, `org.chromium.web-custom-data`, `org.chromium.source-url`, `org.chromium.internal.source-rfh-token`, `com.apple.notes.richtext`, `x.nspasteboard.ModifiedType`, `org.nspasteboard.source`, `app.nori.from-nori`, `com.apple.is-remote-clipboard`.
 
 ### 6.5 Sensitive items (in memory only)
-High-precision patterns only; no entropy heuristics (git SHAs, UUIDs, base64 blobs, SHA-256 digests must NOT match — the negative corpus has ≥ 40 such samples): `-----BEGIN [A-Z ]*PRIVATE KEY-----`, `\bAKIA[0-9A-Z]{16}\b`, `\b(ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{36,}\b`, `\bgithub_pat_[A-Za-z0-9_]{22,}\b`, `\bsk-[A-Za-z0-9_-]{32,}\b`, `\bxox[abpr]-[A-Za-z0-9-]{10,}\b`, `\bAIza[0-9A-Za-z_-]{35}\b`, `^eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}$` (whole string), and a 13–19 digit string (spaces/dashes allowed) that passes Luhn. `SensitiveClip` (struct in `SensitiveVault`, @MainActor) holds the representations, mask, source, `capturedAt`, `expiresAt = capturedAt + 10 min`; never written to SwiftData; excluded from search; un-pinnable; pasteable; removed by a 30 s sweep timer and on quit. A re-copy resets `expiresAt`. No "Keep" button, no ghost row for these.
+High-precision patterns only; no entropy heuristics (git SHAs, UUIDs, base64 blobs, SHA-256 digests must NOT match — the negative corpus has 16 (macOS) / 29 (Windows) such samples): `-----BEGIN [A-Z ]*PRIVATE KEY-----`, `\bAKIA[0-9A-Z]{16}\b`, `\b(ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{36,}\b`, `\bgithub_pat_[A-Za-z0-9_]{22,}\b`, `\bsk-[A-Za-z0-9_-]{32,}\b`, `\bxox[abpr]-[A-Za-z0-9-]{10,}\b`, `\bAIza[0-9A-Za-z_-]{35}\b`, `^eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}$` (whole string), and a 13–19 digit string (spaces/dashes allowed) that passes Luhn. `SensitiveClip` (struct in `SensitiveVault`, @MainActor) holds the representations, mask, source, `capturedAt`, `expiresAt = capturedAt + 10 min`; never written to SwiftData; excluded from search; un-pinnable; pasteable; removed by a 30 s sweep timer and on quit. A re-copy resets `expiresAt`. No "Keep" button, no ghost row for these.
 
 ### 6.6 Images
 If `public.png` is present, drop `public.tiff` and `public.jpeg`/`public.heic`. If only TIFF (or only JPEG/HEIC), transcode to PNG off-main via `CGImageSource` → `CGImageDestination` and store PNG only (every screenshot arrives as a 30 MB TIFF + 300 KB PNG). Thumbnail: `CGImageSourceCreateThumbnailAtIndex` with `kCGImageSourceThumbnailMaxPixelSize = 224`, `kCGImageSourceCreateThumbnailFromImageAlways = true`, `kCGImageSourceShouldCacheImmediately = false`, encoded as PNG and stored inline in `ClipItem.thumbnail` (typically 10–40 KB). The list never decodes a full image.
