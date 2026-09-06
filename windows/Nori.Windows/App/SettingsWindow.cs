@@ -160,6 +160,9 @@ internal sealed class SettingsWindow : Window
             Save();
         }));
 
+        stack.Children.Add(Check("Look_AppIcons", settings.ShowAppIcons, v => { settings.ShowAppIcons = v; Save(); }));
+        stack.Children.Add(Check("Look_HintBar", settings.ShowHintBar, v => { settings.ShowHintBar = v; Save(); }));
+
         var welcome = Ui.FlatButton(_theme, Strings.Get("General_ShowWelcome"), () => { _app.ShowWelcome(); });
         welcome.HorizontalAlignment = HorizontalAlignment.Left;
         welcome.Margin = new Thickness(0, 20, 0, 0);
