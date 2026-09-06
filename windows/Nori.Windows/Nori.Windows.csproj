@@ -11,7 +11,6 @@
     <!-- WinForms is referenced only for NotifyIcon (the tray icon). -->
     <UseWindowsForms>true</UseWindowsForms>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AssemblyName>Nori</AssemblyName>
     <RootNamespace>Nori.Windows</RootNamespace>
@@ -27,17 +26,17 @@
     <Description>Nori — a clipboard history for Windows.</Description>
     <StartupObject>Nori.Windows.Program</StartupObject>
     <InvariantGlobalization>false</InvariantGlobalization>
-    <SelfContained>false</SelfContained>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Keep the WinForms namespaces out of scope: Application, MessageBox, Timer, Clipboard, … would otherwise be ambiguous with WPF. -->
+    <!-- Keep the WinForms/GDI namespaces out of scope: Application, MessageBox, Timer, Clipboard, … would otherwise be ambiguous with WPF. -->
     <Using Remove="System.Windows.Forms" />
     <Using Remove="System.Drawing" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.11" />
   </ItemGroup>
 
   <ItemGroup>
