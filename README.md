@@ -51,6 +51,15 @@ Press **⌘⇧V** anywhere. A glass panel opens at your pointer with everything 
   </tr>
 </table>
 
+<p align="center"><em>The same app on Windows:</em></p>
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/windows/default.png" alt="Nori on Windows"></td>
+    <td><img src="docs/screenshots/windows/dark.png" alt="Nori on Windows, dark"></td>
+  </tr>
+</table>
+
 ## Install
 
 Both builds come from the same [release](https://github.com/hocky0301/Nori/releases/latest).
