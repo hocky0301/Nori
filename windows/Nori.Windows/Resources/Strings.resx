@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <root>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
@@ -345,9 +345,6 @@
   <data name="Tab_Privacy" xml:space="preserve">
     <value>Privacy</value>
   </data>
-  <data name="Tab_Look" xml:space="preserve">
-    <value>Look</value>
-  </data>
   <data name="Tab_About" xml:space="preserve">
     <value>About</value>
   </data>
@@ -449,9 +446,6 @@
   </data>
   <data name="Look_AppIcons" xml:space="preserve">
     <value>Show app icons on clips</value>
-  </data>
-  <data name="Look_Keycaps" xml:space="preserve">
-    <value>Show Ctrl+1–9 on clips</value>
   </data>
   <data name="Look_HintBar" xml:space="preserve">
     <value>Show keyboard hints at the bottom of the panel</value>

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Media;
 using Microsoft.Win32;
 using Nori.Core;
@@ -9,7 +10,7 @@ using Nori.Windows.Resources;
 
 namespace Nori.Windows;
 
-/// <summary>Settings: five tabs (General, Capture, Privacy, Look, About), plain WPF controls, saved on change.</summary>
+/// <summary>Settings: four tabs (General, Capture, Privacy, About), saved on change.</summary>
 internal sealed class SettingsWindow : Window
 {
     private readonly App _app;
@@ -32,11 +33,16 @@ internal sealed class SettingsWindow : Window
         ShowInTaskbar = true;
         Topmost = app.Options.IsScreenshotMode;
 
-        _tabs = new TabControl { Margin = new Thickness(12), Background = Theme.Transparent, BorderThickness = new Thickness(0) };
+        _tabs = new TabControl
+        {
+            Margin = new Thickness(14, 12, 14, 14),
+            Background = Theme.Transparent,
+            BorderThickness = new Thickness(0),
+            Padding = new Thickness(0, 10, 0, 0),
+        };
         _tabs.Items.Add(Tab("Tab_General", General()));
         _tabs.Items.Add(Tab("Tab_Capture", Capture()));
         _tabs.Items.Add(Tab("Tab_Privacy", Privacy()));
-        _tabs.Items.Add(Tab("Tab_Look", Look()));
         _tabs.Items.Add(Tab("Tab_About", About()));
         Content = _tabs;
     }
@@ -46,9 +52,42 @@ internal sealed class SettingsWindow : Window
     private TabItem Tab(string key, UIElement content) => new()
     {
         Header = Strings.Get(key),
-        Content = new ScrollViewer { Content = content, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Padding = new Thickness(16) },
+        Content = new ScrollViewer { Content = content, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Padding = new Thickness(20, 4, 20, 20) },
         Foreground = _theme.Primary,
+        Template = TabItemTemplate(),
     };
+
+    /// <summary>A flat pill tab, so Settings matches the panel instead of the default WPF chrome.</summary>
+    private ControlTemplate TabItemTemplate()
+    {
+        var border = new FrameworkElementFactory(typeof(Border), "border");
+        border.SetValue(Border.CornerRadiusProperty, new CornerRadius(7));
+        border.SetValue(Border.PaddingProperty, new Thickness(14, 6, 14, 6));
+        border.SetValue(Border.MarginProperty, new Thickness(0, 0, 4, 0));
+        border.SetValue(Border.BackgroundProperty, Theme.Transparent);
+
+        var header = new FrameworkElementFactory(typeof(ContentPresenter));
+        header.SetValue(ContentPresenter.ContentSourceProperty, "Header");
+        header.SetValue(TextElement.FontSizeProperty, 13.0);
+        header.SetValue(TextElement.ForegroundProperty, _theme.Secondary);
+        border.AppendChild(header);
+
+        var template = new ControlTemplate(typeof(TabItem)) { VisualTree = border };
+
+        var selected = new Trigger { Property = TabItem.IsSelectedProperty, Value = true };
+        selected.Setters.Add(new Setter(Border.BackgroundProperty, _theme.AccentBrush, "border"));
+        selected.Setters.Add(new Setter(TextElement.ForegroundProperty, Brushes.White, "border"));
+        selected.Setters.Add(new Setter(TextElement.FontWeightProperty, FontWeights.SemiBold, "border"));
+        template.Triggers.Add(selected);
+
+        var hover = new MultiTrigger();
+        hover.Conditions.Add(new Condition(TabItem.IsMouseOverProperty, true));
+        hover.Conditions.Add(new Condition(TabItem.IsSelectedProperty, false));
+        hover.Setters.Add(new Setter(Border.BackgroundProperty, _theme.ChipHover, "border"));
+        template.Triggers.Add(hover);
+
+        return template;
+    }
 
     private TextBlock Label(string key, bool caption = false)
     {
@@ -250,16 +289,6 @@ internal sealed class SettingsWindow : Window
     }
 
     // MARK: - Look
-
-    private UIElement Look()
-    {
-        var settings = _app.Settings;
-        var stack = new StackPanel();
-        stack.Children.Add(Check("Look_AppIcons", settings.ShowAppIcons, v => { settings.ShowAppIcons = v; Save(); }));
-        stack.Children.Add(Check("Look_Keycaps", settings.ShowKeycaps, v => { settings.ShowKeycaps = v; Save(); }));
-        stack.Children.Add(Check("Look_HintBar", settings.ShowHintBar, v => { settings.ShowHintBar = v; Save(); }));
-        return stack;
-    }
 
     // MARK: - About
 

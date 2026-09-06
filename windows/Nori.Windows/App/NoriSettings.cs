@@ -59,7 +59,6 @@ internal sealed class NoriSettings
     public bool ShowGhostRows { get; set; } = true;
     public bool ClearOnQuit { get; set; }
     public bool ShowAppIcons { get; set; } = true;
-    public bool ShowKeycaps { get; set; } = true;
     public bool ShowHintBar { get; set; } = true;
     public bool HasCompletedOnboarding { get; set; }
     public int NotSavedCount { get; set; }

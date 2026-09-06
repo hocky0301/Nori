@@ -417,7 +417,7 @@ internal sealed class CardFactory
         var time = Ui.Text(PanelSections.RelativeTime(row.LastCopiedAt, _clock.Now, Culture), 11, _theme.Secondary, FontWeights.Medium);
         panel.Children.Add(time);
         Border? keycap = null;
-        if (_settings.ShowKeycaps && number is { } n)
+        if (number is { } n)
         {
             keycap = Ui.Keycap(_theme, $"Ctrl+{n}", controlHeld ? 1 : 0.5);
             keycap.Margin = new Thickness(Ui.MetaGap, 0, 0, 0);
