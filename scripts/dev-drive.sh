@@ -2,8 +2,7 @@
 # Dev driver for Nori: launch/kill a debug build, send debug commands, capture the panel.
 # Env: NORI_DD (derived data dir with Build/Products/Debug/Nori.app), NORI_CHANNEL (isolates instances).
 set -e
-SCRATCH=${NORI_SCRATCH:-/private/tmp/claude-501/-Users-kamil-Documents-10-Build-MACOPY/8140ed08-38f8-4666-adde-5ffe74d5235c/scratchpad}
-DD=${NORI_DD:-$SCRATCH/DerivedData}
+DD=${NORI_DD:-$(cd "$(dirname "$0")/.." && pwd)/DerivedData}
 CHANNEL=${NORI_CHANNEL:-}
 APP=$DD/Build/Products/Debug/Nori.app
 PIDFILE=$DD/nori.pid

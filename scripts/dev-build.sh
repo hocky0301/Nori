@@ -1,9 +1,8 @@
 #!/bin/zsh
 # build.sh [build|test] — xcodebuild with the noise stripped.
 # Env: NORI_ROOT (repo dir), NORI_DD (derived data dir). Defaults: main checkout + shared DerivedData.
-SCRATCH=${NORI_SCRATCH:-/private/tmp/claude-501/-Users-kamil-Documents-10-Build-MACOPY/8140ed08-38f8-4666-adde-5ffe74d5235c/scratchpad}
-ROOT=${NORI_ROOT:-/Users/kamil/Documents/10_Build/MACOPY}
-DD=${NORI_DD:-$SCRATCH/DerivedData}
+ROOT=${NORI_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}
+DD=${NORI_DD:-$ROOT/DerivedData}
 cd "$ROOT" || exit 1
 ACTION=${1:-build}
 LOG=$DD/last-$ACTION.log
