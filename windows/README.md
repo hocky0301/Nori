@@ -47,6 +47,11 @@ Where macOS reads privacy markers from the pasteboard, Windows has its own: Nori
 `ExcludeClipboardContentFromMonitorProcessing` and `CanIncludeInClipboardHistory`, so password managers that
 ask to be left out are left out.
 
+## Download size
+
+The release is one self-contained `Nori.exe` (~74 MB, ~68 MB zipped): it carries the .NET and WPF runtime, so
+there is nothing to install first. Compression is on; without it the exe is 176 MB.
+
 ## How it is verified
 
 The app cannot run on the machine it is developed on, so it renders itself instead. Every launch flag below is
