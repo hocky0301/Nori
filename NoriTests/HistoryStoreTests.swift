@@ -52,6 +52,61 @@ struct HistoryStoreTests {
         #expect(store.rows.map(\.title) == ["item 4", "item 3", "item 2"])
     }
 
+    @Test func loweringTheLimitPersistsTheEvictions() throws {
+        let store = try makeStore()
+        for i in 0..<5 {
+            store.ingest(textDraft("item \(i)"), now: Date(timeIntervalSince1970: TimeInterval(i)))
+        }
+        store.maxItems = 2
+        #expect(store.rows.map(\.title) == ["item 4", "item 3"])
+        // A fresh context sees only what was saved.
+        let fresh = ModelContext(Storage.shared.container)
+        #expect(try fresh.fetchCount(FetchDescriptor<ClipItem>()) == 2)
+    }
+
+    @Test func unpinningAtTheLimitKeepsTheItem() throws {
+        let store = try makeStore()
+        store.maxItems = 2
+        let old = store.ingest(textDraft("old"), now: Date(timeIntervalSince1970: 0))
+        store.togglePin(id: old)
+        store.ingest(textDraft("a"), now: Date(timeIntervalSince1970: 1))
+        store.ingest(textDraft("b"), now: Date(timeIntervalSince1970: 2))
+        store.togglePin(id: old)
+        #expect(store.row(id: old)?.isPinned == false)
+        #expect(store.rows.map(\.title) == ["b", "a", "old"], "the cap applies on the next capture, not now")
+        store.ingest(textDraft("c"), now: Date(timeIntervalSince1970: 3))
+        #expect(store.rows.map(\.title) == ["c", "b"])
+    }
+
+    @Test func restoreMergesIntoARowWithTheSameContent() throws {
+        let store = try makeStore()
+        let original = store.ingest(textDraft("same"), now: Date(timeIntervalSince1970: 1))
+        store.togglePin(id: original, now: Date(timeIntervalSince1970: 2))
+        let record = try #require(store.delete(id: original))
+        // Re-copied within the undo window: a fresh row exists when ⌘Z arrives.
+        let again = store.ingest(textDraft("same"), now: Date(timeIntervalSince1970: 5))
+        let restored = store.restore(record)
+        #expect(restored == again)
+        #expect(store.rows.count == 1)
+        let row = try #require(store.row(id: again))
+        #expect(row.copyCount == 2)
+        #expect(row.firstCopiedAt == Date(timeIntervalSince1970: 1))
+        #expect(row.lastCopiedAt == Date(timeIntervalSince1970: 5))
+        #expect(row.isPinned)
+    }
+
+    @Test func payloadsAreReadOnDemand() throws {
+        let store = try makeStore()
+        let id = store.ingest(textDraft("payload"), now: Date(timeIntervalSince1970: 1))
+        #expect(store.contents(id: id).map(\.type) == [PasteboardType.utf8PlainText])
+        #expect(store.plainText(id: id) == "payload")
+        #expect(store.imageData(id: id) == nil)
+        #expect(store.contents(id: UUID()).isEmpty)
+        store.delete(id: id)
+        #expect(store.contents(id: id).isEmpty)
+        #expect(store.plainText(id: id) == nil)
+    }
+
     @Test func pinnedItemsSurviveLimitAndClear() throws {
         let store = try makeStore()
         store.maxItems = 2

@@ -226,6 +226,74 @@ struct ClipClassifierTests {
         #expect(draft.contents.map(\.type) == [PasteboardType.utf8PlainText])
     }
 
+    @Test func oversizedRichTextIsDroppedButPlainTextKept() throws {
+        var policy = CapturePolicy()
+        policy.maxOtherRepresentationBytes = 4
+        let snap = snapshot([[text("tiny"), (PasteboardType.rtf, Data(repeating: 0, count: 10)), (PasteboardType.html, Data(repeating: 0, count: 10))]])
+        let draft = try draft(ClipClassifier.classify(snap, policy: policy))
+        #expect(draft.contents.map(\.type) == [PasteboardType.utf8PlainText])
+        #expect(!draft.isRichText)
+    }
+
+    @Test func htmlOnlyCopiesAreReducedWithoutTheHTMLImporter() throws {
+        let html = """
+        <html><head><style>p { color: red }</style><script>alert(1)</script></head>
+        <body><h1>Title</h1><p>Hello <b>world</b> &amp; friends&#33;</p><p>Second&nbsp;line &#x2014; done</p></body></html>
+        """
+        let draft = try draft(ClipClassifier.classify(snapshot([[(PasteboardType.html, Data(html.utf8))]])))
+        #expect(draft.kind == .text)
+        #expect(draft.title == "Title\nHello world & friends!\nSecond line — done")
+        #expect(draft.lineCount == 3)
+        #expect(!draft.isRichText)
+        // Plain text wins whenever it is there; the markup is never decoded then.
+        let both = try self.draft(ClipClassifier.classify(snapshot([[text("plain"), (PasteboardType.html, Data("<p>rich</p>".utf8))]])))
+        #expect(both.title == "plain")
+    }
+
+    @Test func secretsInRichOnlyCopiesAndLongTextsAreCaught() throws {
+        let rtf = try #require(NSAttributedString(string: "AKIAIOSFODNN7EXAMPLE").rtf(from: NSRange(location: 0, length: 20), documentAttributes: [:]))
+        let richOnly = ClipClassifier.classify(snapshot([[(PasteboardType.rtf, rtf)]]))
+        guard case let .sensitive(sensitive) = richOnly else {
+            Issue.record("expected sensitive, got \(richOnly)")
+            return
+        }
+        #expect(sensitive.match == .awsAccessKey)
+
+        let env = String(repeating: "KEY=value\n", count: 3_000) + "AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE\n"
+        #expect(env.utf16.count > 20_000)
+        guard case .sensitive = ClipClassifier.classify(snapshot([[text(env)]])) else {
+            Issue.record("a key at the end of a long .env must still be caught")
+            return
+        }
+    }
+
+    @Test func universalClipboardImageFileIsReadAndTheTemporaryURLDropped() throws {
+        let png = try #require(TestImages.png(width: 8, height: 6))
+        let directory = FileManager.default.temporaryDirectory.appending(path: "nori-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let first = directory.appending(path: "IMG_0001.png")
+        let second = directory.appending(path: "IMG_0002.png")
+        try png.write(to: first)
+        try png.write(to: second)
+
+        func snap(_ url: URL) -> PasteboardSnapshot {
+            snapshot([[(PasteboardType.fileURL, url.dataRepresentation)]],
+                     declared: [PasteboardType.fileURL, PasteboardType.universalClipboard])
+        }
+        let a = try draft(ClipClassifier.classify(snap(first)))
+        let b = try draft(ClipClassifier.classify(snap(second)))
+        #expect(a.kind == .image)
+        #expect(a.imagePixelSize == CGSize(width: 8, height: 6))
+        #expect(a.contents.map(\.type) == [PasteboardType.png])
+        #expect(a.fileURLs.isEmpty)
+        #expect(a.contentHash == b.contentHash, "the same photo copied twice is one history row")
+
+        var policy = CapturePolicy()
+        policy.maxImageBytes = 4
+        #expect(ClipClassifier.classify(snap(first), policy: policy) == .ghost(.imageTooLarge(bytes: png.count)))
+    }
+
     @Test func hugeTextIsTruncated() throws {
         var policy = CapturePolicy()
         policy.maxTextBytes = 16

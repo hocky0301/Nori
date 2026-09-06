@@ -9,25 +9,26 @@ import Testing
 @MainActor
 final class ActionRecorder {
     var performed: [(clip: ClipRow, action: ActionGrammar.Action)] = []
-    var copiedText: [String] = []
+    /// No-match ↩: the typed query and the action it resolved to.
+    var typedText: [(text: String, action: ActionGrammar.Action)] = []
     var opened: [ClipRow] = []
     var revealed: [ClipRow] = []
     var closeCount = 0
     var settingsCount = 0
-    var focusSearchCount = 0
     var togglePauseCount = 0
+    var clearSystemClipboardCount = 0
 
     var lastPerformed: (clip: ClipRow, action: ActionGrammar.Action)? { performed.last }
 
     func actions(closingModel model: PanelModel) -> PanelActions {
         var actions = PanelActions()
         actions.perform = { [unowned self] clip, action in performed.append((clip, action)) }
-        actions.copyText = { [unowned self] text in copiedText.append(text) }
+        actions.pasteTypedText = { [unowned self] text, action in typedText.append((text, action)) }
         actions.open = { [unowned self] clip in opened.append(clip) }
         actions.reveal = { [unowned self] clip in revealed.append(clip) }
         actions.openSettings = { [unowned self] in settingsCount += 1 }
-        actions.focusSearch = { [unowned self] in focusSearchCount += 1 }
         actions.togglePause = { [unowned self] in togglePauseCount += 1 }
+        actions.clearSystemClipboard = { [unowned self] in clearSystemClipboardCount += 1 }
         // The real controller calls `panelDidClose` when the window goes away; mirror that.
         actions.close = { [unowned self, unowned model] in
             closeCount += 1
@@ -81,8 +82,10 @@ final class PanelHarness {
         }
     }
 
-    func open() {
-        model.panelWillOpen()
+    /// Opens as the hotkey does by default (modifiers held → cycle mode armed); pass false for a
+    /// status-item click or menu item.
+    func open(viaHotkey: Bool = true) {
+        model.panelWillOpen(viaHotkey: viaHotkey)
     }
 
     var visibleTitles: [String] { model.rows.map(\.row.title) }
@@ -140,6 +143,18 @@ enum Keys {
     /// ⌘ + letter, as the monitor sees it (`charactersIgnoringModifiers` is the bare letter).
     static func command(_ letter: String, extra: NSEvent.ModifierFlags = []) -> NSEvent {
         press(0, letter, flags: NSEvent.ModifierFlags.command.union(extra))
+    }
+
+    /// kVK_ANSI_1…9, in key-code order 1…9.
+    static let numberRow: [UInt16] = [18, 19, 20, 21, 23, 22, 26, 28, 25]
+    /// What a US keyboard reports in `charactersIgnoringModifiers` for ⇧1…⇧9: that property
+    /// ignores every modifier except Shift, so a real ⇧⌘5 carries "%", never "5".
+    static let shiftedNumberRow = ["!", "@", "#", "$", "%", "^", "&", "*", "("]
+
+    /// A number-row key with the given modifiers, carrying the character a US layout produces.
+    static func number(_ digit: Int, flags: NSEvent.ModifierFlags = [.command]) -> NSEvent {
+        let character = flags.contains(.shift) ? shiftedNumberRow[digit - 1] : String(digit)
+        return press(numberRow[digit - 1], character, flags: flags)
     }
 
     static func control(_ letter: String) -> NSEvent {

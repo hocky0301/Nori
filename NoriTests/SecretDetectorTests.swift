@@ -43,6 +43,14 @@ struct SecretDetectorTests {
         #expect(SecretDetector.detect(in: text) == nil, Comment(rawValue: text))
     }
 
+    @Test func longTextsAreScannedInFull() {
+        let padding = String(repeating: "lorem ipsum dolor sit amet\n", count: 2_000)
+        #expect(padding.utf16.count > 20_000)
+        #expect(SecretDetector.detect(in: padding + "token ghp_abcdefghijklmnopqrstuvwxyz0123456789ABCD") == .gitHubToken)
+        #expect(SecretDetector.detect(in: "-----BEGIN PRIVATE KEY-----\n" + padding) == .privateKey)
+        #expect(SecretDetector.detect(in: padding) == nil)
+    }
+
     @Test func masking() {
         #expect(SecretDetector.mask("4111 1111 1111 1111") == "•••• •••• •••• 1111")
         #expect(SecretDetector.mask("AKIAIOSFODNN7EXAMPLE") == "•••• •••• •••• •••• MPLE")

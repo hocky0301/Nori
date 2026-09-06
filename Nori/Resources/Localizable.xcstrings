@@ -121,16 +121,6 @@
         }
       }
     },
-    "%lld items not saved today": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "今日は %lld 件が未保存"
-          }
-        }
-      }
-    },
     "%lld lines": {
       "localizations": {
         "ja": {
@@ -197,16 +187,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "1日"
-          }
-        }
-      }
-    },
-    "1 item not saved today": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "今日は 1 件が未保存"
           }
         }
       }
@@ -531,7 +511,7 @@
         }
       }
     },
-    "Cleared %lld clips": {
+    "Cleared ^[%lld clip](inflect: true)": {
       "localizations": {
         "ja": {
           "stringUnit": {
@@ -747,6 +727,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "コピー · ペーストを許可 →"
+          }
+        }
+      }
+    },
+    "Copy “%@” as text": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「%@」をテキストとしてコピー"
           }
         }
       }
@@ -1571,6 +1561,16 @@
         }
       }
     },
+    "Paste “%@” as text": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「%@」をテキストとしてペースト"
+          }
+        }
+      }
+    },
     "Pasting": {
       "localizations": {
         "ja": {
@@ -1627,16 +1627,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "ピン留め"
-          }
-        }
-      }
-    },
-    "Pinned clips are kept. Hold ⌥ while clicking Clear to remove pinned clips too.": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ピン留めしたクリップは残ります。⌥ を押しながら「消去」をクリックするとピン留めも削除します。"
           }
         }
       }
@@ -2241,6 +2231,16 @@
         }
       }
     },
+    "^[%lld item](inflect: true) not saved today": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今日は %lld 件が未保存"
+          }
+        }
+      }
+    },
     "a color value": {
       "localizations": {
         "ja": {
@@ -2407,6 +2407,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "何か"
+          }
+        }
+      }
+    },
+    "to copy": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "でコピー"
           }
         }
       }

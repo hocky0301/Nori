@@ -8,8 +8,9 @@ import SwiftUI
 @MainActor
 final class PanelController: NSObject, NSWindowDelegate {
     private(set) var isVisible = false
-    var onWillOpen: ((_ preservingState: Bool) -> Void)?
-    var onDidClose: (() -> Void)?
+    var onWillOpen: ((_ preservingState: Bool, _ viaHotkey: Bool) -> Void)?
+    /// `willReopen` is true for the close that precedes a keep-open reopen.
+    var onDidClose: ((_ willReopen: Bool) -> Void)?
     /// Return true to swallow the event.
     var keyHandler: ((NSEvent) -> Bool)?
     var statusButton: NSStatusBarButton?
@@ -32,16 +33,21 @@ final class PanelController: NSObject, NSWindowDelegate {
         panel.onResignKey = { [weak self] in self?.close(reason: "resignKey") }
     }
 
-    func toggle(position: NoriSettings.PanelPosition? = nil) {
-        if isVisible { close(reason: "toggle") } else { open(position: position) }
+    /// `viaHotkey`: the global hotkey opened the panel (its modifiers are held), which is what
+    /// arms cycle mode; a status-item click or a menu item never does.
+    func toggle(position: NoriSettings.PanelPosition? = nil, viaHotkey: Bool = false) {
+        if isVisible { close(reason: "toggle") } else { open(position: position, viaHotkey: viaHotkey) }
     }
 
-    func open(position: NoriSettings.PanelPosition? = nil, preservingState: Bool = false, frame: NSRect? = nil) {
+    func open(position: NoriSettings.PanelPosition? = nil, preservingState: Bool = false, frame: NSRect? = nil, viaHotkey: Bool = false) {
         guard !isVisible else { return }
+        // Nori hides itself after a Settings or onboarding window closes so the previous app gets
+        // activation back; a hidden app's windows stay hidden, so unhide (without activating) first.
+        if NSApp.isHidden { NSApp.unhideWithoutActivation() }
         let frame = frame ?? PanelPlacement.frame(position: position ?? settings.panelPosition, statusButton: statusButton)
         panel.setFrame(frame, display: false)
         lastFrame = frame
-        onWillOpen?(preservingState)
+        onWillOpen?(preservingState, viaHotkey)
         installMonitor()
         animateIn()
         panel.orderFrontRegardless()
@@ -51,16 +57,26 @@ final class PanelController: NSObject, NSWindowDelegate {
         logger.debug("opened panel at \(frame.origin.x),\(frame.origin.y)")
     }
 
-    func close(reason: String = "request") {
-        guard isVisible else { return }
+    /// Hide the panel. `immediately` skips the fade and orders the window out before returning,
+    /// so the panel has resigned key when `completion` runs — required before a synthetic ⌘V is
+    /// posted, or the keystroke lands on Nori's own search field. `willReopen` marks the close
+    /// that precedes a keep-open reopen.
+    func close(reason: String = "request", immediately: Bool = false, willReopen: Bool = false, completion: (@MainActor () -> Void)? = nil) {
+        guard isVisible else { completion?(); return }
         logger.debug("closing panel (\(reason, privacy: .public))")
         isVisible = false
         removeMonitor()
         statusButton?.isHighlighted = false
-        onDidClose?()
-        animateOut { [weak self] in
-            guard let self, !isVisible else { return }
+        onDidClose?(willReopen)
+        if immediately {
+            panel.contentView?.layer?.removeAllAnimations()
             panel.orderOut(nil)
+            completion?()
+            return
+        }
+        animateOut { [weak self] in
+            if let self, !isVisible { panel.orderOut(nil) }
+            completion?()
         }
     }
 

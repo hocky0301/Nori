@@ -19,9 +19,11 @@ enum SecretDetector {
         (.jwt, try! NSRegularExpression(pattern: #"^eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}$"#)),
     ]
 
+    /// Scans the whole text (up to the capture cap of a few MB — a copied `.env` or CI config is
+    /// exactly where keys hide); the patterns are anchored and cheap.
     static func detect(in text: String) -> Match? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, trimmed.utf16.count <= 20_000 else { return nil }
+        guard !trimmed.isEmpty else { return nil }
         let range = NSRange(trimmed.startIndex..., in: trimmed)
         for (match, regex) in patterns where regex.firstMatch(in: trimmed, range: range) != nil {
             return match

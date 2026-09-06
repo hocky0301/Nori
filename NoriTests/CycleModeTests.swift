@@ -24,7 +24,8 @@ struct CycleModeTests {
         #expect(harness.send(Keys.hotkey()))
         #expect(harness.model.isCycling)
         #expect(harness.selectedTitle == "second")
-        #expect(harness.model.hintChips.first == .init(key: "Release \(harness.model.hotkeyModifierGlyphs)", verb: "to paste"))
+        let releaseVerb = harness.model.accessibilityTrusted ? "to paste" : "to copy"
+        #expect(harness.model.hintChips.first == .init(key: "Release \(harness.model.hotkeyModifierGlyphs)", verb: releaseVerb))
         #expect(harness.recorder.performed.isEmpty)
 
         // Releasing every modifier performs ↩ with empty bits on the selection.
@@ -105,6 +106,29 @@ struct CycleModeTests {
         #expect(harness.model.isCycling)
         harness.send(Keys.flags([]))
         #expect(harness.recorder.lastPerformed?.clip.title == "third")
+    }
+
+    @Test func mouseOpenMakesTheHotkeyAPlainToggle() {
+        // Opened from the status item or a menu, no modifiers are held, so there is no release
+        // to wait for: the chord must close the panel, never cycle and paste on release.
+        let harness = PanelHarness()
+        harness.seed(["second", "first"])
+        harness.open(viaHotkey: false)
+        #expect(harness.send(Keys.hotkey()))
+        #expect(harness.recorder.closeCount == 1)
+        #expect(!harness.model.isCycling)
+        #expect(!harness.model.isOpen)
+        harness.send(Keys.flags([]))
+        #expect(harness.recorder.performed.isEmpty)
+        #expect(harness.selectedTitle == "first")
+
+        // A keep-open reopen is not a hotkey open either.
+        harness.open(viaHotkey: false)
+        harness.model.panelDidClose(willReopen: true)
+        harness.model.panelWillOpen(preserveState: true)
+        harness.send(Keys.hotkey())
+        #expect(!harness.model.isCycling)
+        #expect(harness.recorder.closeCount == 2)
     }
 
     @Test func cycleModeDisabledMakesTheHotkeyAPlainToggle() {

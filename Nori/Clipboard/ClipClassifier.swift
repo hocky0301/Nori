@@ -81,9 +81,11 @@ enum ClipClassifier {
                         imageTooLarge = max(imageTooLarge ?? 0, data.count)
                         continue
                     }
-                } else if PasteboardType.textTypes.contains(type) {
+                } else if type == PasteboardType.utf8PlainText {
                     // handled below (truncation)
                 } else if type != PasteboardType.fileURL, data.count > policy.maxOtherRepresentationBytes {
+                    // Includes RTF/HTML: a formatted spreadsheet range carries tens of MB of markup
+                    // next to a few hundred KB of plain text, which is all that is worth keeping.
                     continue
                 }
                 seenTypes.insert(type)
@@ -103,6 +105,25 @@ enum ClipClassifier {
             return .rejected(matchedRegexp ? .matchedIgnoreRegexp : .nothingToStore)
         }
 
+        // Universal Clipboard delivers images from iOS as a temporary JPEG file plus a file URL.
+        // Read the bytes now and drop the URL: the file is gone soon, and its random path would
+        // otherwise make every copy of the same photo a new history row.
+        if isUniversal, !merged.contains(where: { PasteboardType.imageTypes.contains($0.type) }),
+           let url = universalClipboardImageURL(in: merged) {
+            let onDisk = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
+            if onDisk > policy.maxImageBytes {
+                return .ghost(.imageTooLarge(bytes: onDisk))
+            }
+            if let bytes = try? Data(contentsOf: url) {
+                if bytes.count > policy.maxImageBytes {
+                    return .ghost(.imageTooLarge(bytes: bytes.count))
+                }
+                let type = url.pathExtension.lowercased() == "png" ? PasteboardType.png : PasteboardType.jpeg
+                merged.removeAll { $0.type == PasteboardType.fileURL }
+                merged.append(ClipDraft.Content(type: type, data: bytes))
+            }
+        }
+
         var isTruncated = false
         if let index = merged.firstIndex(where: { $0.type == PasteboardType.utf8PlainText }),
            merged[index].data.count > policy.maxTextBytes {
@@ -112,18 +133,29 @@ enum ClipClassifier {
             isTruncated = true
         }
 
-        guard var draft = makeDraft(contents: merged, isUniversalClipboard: isUniversal, sourceBundleID: snapshot.sourceBundleID) else {
+        guard let built = build(contents: merged, isUniversalClipboard: isUniversal, sourceBundleID: snapshot.sourceBundleID) else {
             return .rejected(.nothingToStore)
         }
+        var draft = built.draft
         draft.sourceBundleID = snapshot.sourceBundleID
         draft.sourceAppName = isUniversal ? "iPhone or iPad" : snapshot.sourceAppName
         draft.isTruncated = isTruncated
 
-        // 5. Secrets never touch disk.
-        if policy.maskSensitive, draft.kind.isTextual, let text = draft.plainText, let match = SecretDetector.detect(in: text) {
-            return .sensitive(SensitiveDraft(match: match, mask: SecretDetector.mask(text), draft: draft))
+        // 5. Secrets never touch disk — also when the copy only carries RTF/HTML.
+        if policy.maskSensitive, draft.kind.isTextual, let match = SecretDetector.detect(in: built.text) {
+            return .sensitive(SensitiveDraft(match: match, mask: SecretDetector.mask(built.text), draft: draft))
         }
         return .captured(draft)
+    }
+
+    /// The temporary image file behind an iOS copy, when that is all the pasteboard holds.
+    private static func universalClipboardImageURL(in contents: [ClipDraft.Content]) -> URL? {
+        let urls = contents
+            .filter { $0.type == PasteboardType.fileURL }
+            .compactMap { URL(dataRepresentation: $0.data, relativeTo: nil, isAbsolute: true) }
+        guard urls.count == 1, let url = urls.first,
+              ["jpeg", "jpg", "png", "heic"].contains(url.pathExtension.lowercased()) else { return nil }
+        return url
     }
 
     // MARK: - Classification
@@ -133,23 +165,27 @@ enum ClipClassifier {
         isUniversalClipboard: Bool = false,
         sourceBundleID: String? = nil
     ) -> ClipDraft? {
+        build(contents: contents, isUniversalClipboard: isUniversalClipboard, sourceBundleID: sourceBundleID)?.draft
+    }
+
+    /// A draft plus the full text it was classified from (the draft only keeps a capped title
+    /// and search text; secret detection needs all of it).
+    struct Built {
+        var draft: ClipDraft
+        var text: String
+    }
+
+    static func build(
+        contents: [ClipDraft.Content],
+        isUniversalClipboard: Bool = false,
+        sourceBundleID: String? = nil
+    ) -> Built? {
         var contents = contents
         func data(_ type: String) -> Data? { contents.first(where: { $0.type == type })?.data }
 
         let fileURLs = contents
             .filter { $0.type == PasteboardType.fileURL }
             .compactMap { URL(dataRepresentation: $0.data, relativeTo: nil, isAbsolute: true) }
-
-        // Universal Clipboard delivers images from iOS as a temporary JPEG file plus a file URL.
-        var universalImage = false
-        if !contents.contains(where: { PasteboardType.imageTypes.contains($0.type) }),
-           isUniversalClipboard, let url = fileURLs.first,
-           ["jpeg", "jpg", "png", "heic"].contains(url.pathExtension.lowercased()),
-           let bytes = try? Data(contentsOf: url) {
-            let type = url.pathExtension.lowercased() == "png" ? PasteboardType.png : PasteboardType.jpeg
-            contents.append(ClipDraft.Content(type: type, data: bytes))
-            universalImage = true
-        }
 
         // Images: PNG only, plus an inline thumbnail.
         var imageResult: ImageNormalizer.Result?
@@ -161,13 +197,19 @@ enum ClipClassifier {
             }
         }
 
+        // The rich-text fallback is decoded only when there is no plain text: browsers attach
+        // HTML to nearly every copy, and decoding it just to throw it away is wasted work.
         let plain = data(PasteboardType.utf8PlainText).flatMap { String(data: $0, encoding: .utf8) }
-        let rich = richTextString(rtf: data(PasteboardType.rtf), html: data(PasteboardType.html))
-        let text = (plain?.isEmpty == false ? plain : rich) ?? ""
+        let text: String
+        if let plain, !plain.isEmpty {
+            text = plain
+        } else {
+            text = richTextString(rtf: data(PasteboardType.rtf), html: data(PasteboardType.html)) ?? ""
+        }
 
         var draft = ClipDraft(contents: contents, contentHash: contentHash(of: contents), isFromUniversalClipboard: isUniversalClipboard)
 
-        if !fileURLs.isEmpty, !universalImage {
+        if !fileURLs.isEmpty {
             draft.kind = .file
             draft.fileURLs = fileURLs
             let names = fileURLs.map(\.lastPathComponent)
@@ -175,7 +217,7 @@ enum ClipClassifier {
             draft.searchText = fileURLs.map { $0.path(percentEncoded: false) }.joined(separator: "\n")
             draft.characterCount = draft.title.count
             draft.lineCount = names.count
-            return draft
+            return Built(draft: draft, text: text)
         }
 
         if let imageResult {
@@ -185,7 +227,7 @@ enum ClipClassifier {
             draft.title = "Image \(Int(imageResult.pixelSize.width))×\(Int(imageResult.pixelSize.height))"
             // Browsers put the page text / alt text next to the bitmap; keep it searchable.
             draft.searchText = String(text.prefix(ClipDraft.maxSearchTextLength))
-            return draft
+            return Built(draft: draft, text: text)
         }
 
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -210,7 +252,7 @@ enum ClipClassifier {
         } else {
             draft.kind = .text
         }
-        return draft
+        return Built(draft: draft, text: text)
     }
 
     /// RTF whose only formatting is the default font is really plain text (Terminal, TextEdit in plain mode).
@@ -223,12 +265,15 @@ enum ClipClassifier {
         return runs > 1
     }
 
+    /// Text for a copy without a plain-text representation. RTF decodes safely anywhere; HTML is
+    /// reduced by a tag stripper because AppKit's HTML importer is WebKit-backed and must not run
+    /// off the main thread (classification never does).
     static func richTextString(rtf: Data?, html: Data?) -> String? {
         if let rtf, let attributed = NSAttributedString(rtf: rtf, documentAttributes: nil), !attributed.string.isEmpty {
             return attributed.string
         }
-        if let html, let attributed = NSAttributedString(html: html, documentAttributes: nil), !attributed.string.isEmpty {
-            return attributed.string
+        if let html, let text = HTMLText.plainText(from: html), !text.isEmpty {
+            return text
         }
         return nil
     }
@@ -247,5 +292,70 @@ enum ClipClassifier {
             hasher.update(data: content.data)
         }
         return hasher.finalize().map { String(format: "%02x", $0) }.joined()
+    }
+}
+
+/// A small, thread-safe reduction of HTML to searchable text: scripts, styles and tags go,
+/// block boundaries become line breaks, common entities are decoded.
+enum HTMLText {
+    private static let dropped = try! NSRegularExpression(
+        pattern: #"<!--.*?-->|<script\b[^>]*>.*?</script>|<style\b[^>]*>.*?</style>"#,
+        options: [.caseInsensitive, .dotMatchesLineSeparators]
+    )
+    private static let breaks = try! NSRegularExpression(
+        pattern: #"<\s*(br|/p|/div|/li|/tr|/h[1-6]|/blockquote|/pre|/section|/article)\b[^>]*>"#,
+        options: [.caseInsensitive]
+    )
+    private static let tags = try! NSRegularExpression(pattern: #"<[^>]+>"#)
+    private static let entities = try! NSRegularExpression(pattern: #"&(#x[0-9a-fA-F]+|#[0-9]+|[a-zA-Z]+);"#)
+    private static let spaces = try! NSRegularExpression(pattern: #"[ \t\x{00A0}]+"#)
+    private static let named: [String: String] = [
+        "amp": "&", "lt": "<", "gt": ">", "quot": "\"", "apos": "'", "nbsp": "\u{00A0}",
+        "hellip": "…", "mdash": "—", "ndash": "–", "copy": "©", "reg": "®", "trade": "™",
+    ]
+
+    static func plainText(from data: Data) -> String? {
+        guard let html = String(data: data, encoding: .utf8)
+                ?? String(data: data, encoding: .utf16)
+                ?? String(data: data, encoding: .isoLatin1) else { return nil }
+        var text = replace(dropped, in: html, with: "")
+        text = replace(breaks, in: text, with: "\n")
+        text = replace(tags, in: text, with: "")
+        text = decodeEntities(in: text)
+        text = replace(spaces, in: text, with: " ")
+        let lines = text
+            .split(omittingEmptySubsequences: false, whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+        var collapsed: [String] = []
+        for line in lines where !(line.isEmpty && collapsed.last?.isEmpty == true) {
+            collapsed.append(line)
+        }
+        return collapsed.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func replace(_ regex: NSRegularExpression, in text: String, with template: String) -> String {
+        regex.stringByReplacingMatches(in: text, range: NSRange(text.startIndex..., in: text), withTemplate: template)
+    }
+
+    private static func decodeEntities(in text: String) -> String {
+        let nsText = text as NSString
+        var result = ""
+        var cursor = 0
+        for match in entities.matches(in: text, range: NSRange(location: 0, length: nsText.length)) {
+            result += nsText.substring(with: NSRange(location: cursor, length: match.range.location - cursor))
+            let body = nsText.substring(with: match.range(at: 1))
+            let decoded: String?
+            if body.hasPrefix("#x") || body.hasPrefix("#X") {
+                decoded = UInt32(body.dropFirst(2), radix: 16).flatMap(Unicode.Scalar.init).map { String(Character($0)) }
+            } else if body.hasPrefix("#") {
+                decoded = UInt32(body.dropFirst()).flatMap(Unicode.Scalar.init).map { String(Character($0)) }
+            } else {
+                decoded = named[body.lowercased()]
+            }
+            result += decoded ?? nsText.substring(with: match.range)
+            cursor = match.range.location + match.range.length
+        }
+        result += nsText.substring(from: cursor)
+        return result
     }
 }

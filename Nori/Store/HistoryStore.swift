@@ -15,7 +15,10 @@ final class HistoryStore {
     /// Bumped on every mutation.
     private(set) var version = 0
     var maxItems: Int = 500 {
-        didSet { if maxItems != oldValue { enforceLimit(); publish() } }
+        didSet {
+            guard maxItems != oldValue else { return }
+            if enforceLimit() { save() } else { publish() }
+        }
     }
     /// 0 = never.
     var expireAfterDays: Int = 0
@@ -100,7 +103,7 @@ final class HistoryStore {
     @discardableResult
     func delete(id: UUID) -> UndoRecord? {
         guard let item = item(id: id) else { return nil }
-        var draft = ClipDraft(kind: item.kind, contents: item.draftContents, contentHash: item.contentHash,
+        var draft = ClipDraft(kind: item.kind, contents: contents(id: id), contentHash: item.contentHash,
                               isFromUniversalClipboard: item.isFromUniversalClipboard)
         draft.title = item.title
         draft.searchText = item.searchText
@@ -123,9 +126,17 @@ final class HistoryStore {
         return record
     }
 
-    /// Bring back a deleted item exactly where it was.
+    /// Bring back a deleted item exactly where it was. If the same content was copied again in
+    /// the meantime, the counts merge into that row instead of duplicating it.
     @discardableResult
     func restore(_ record: UndoRecord) -> UUID {
+        if let existing = items.first(where: { $0.contentHash == record.draft.contentHash }) {
+            existing.copyCount += record.copyCount
+            existing.firstCopiedAt = min(existing.firstCopiedAt, record.firstCopiedAt)
+            if existing.pinnedAt == nil { existing.pinnedAt = record.pinnedAt }
+            save()
+            return existing.id
+        }
         let item = ClipItem(draft: record.draft, now: record.firstCopiedAt)
         item.lastCopiedAt = record.lastCopiedAt
         item.copyCount = record.copyCount
@@ -149,10 +160,10 @@ final class HistoryStore {
         return doomed.count
     }
 
+    /// Unpinning never evicts the item just unpinned; the cap is applied again on the next capture.
     func togglePin(id: UUID, now: Date = .now) {
         guard let item = item(id: id) else { return }
         item.pinnedAt = item.isPinned ? nil : now
-        enforceLimit()
         save()
     }
 
@@ -165,16 +176,30 @@ final class HistoryStore {
 
     // MARK: Full content (on demand)
 
+    // Payloads are read through a throwaway context: the external-storage blobs are cached on
+    // the managed object that loaded them, and `items` keeps its objects alive for the app's
+    // lifetime, so reading through them would keep every pasted or previewed image resident.
+
     func contents(id: UUID) -> [ClipDraft.Content] {
-        item(id: id)?.draftContents ?? []
+        withPayload(id: id) { $0.draftContents } ?? []
     }
 
     func plainText(id: UUID) -> String? {
-        item(id: id)?.plainText
+        withPayload(id: id) { $0.plainText } ?? nil
     }
 
     func imageData(id: UUID) -> Data? {
-        item(id: id)?.imageData
+        withPayload(id: id) { $0.imageData } ?? nil
+    }
+
+    private func withPayload<T>(id: UUID, _ read: (ClipItem) -> T) -> T? {
+        guard item(id: id) != nil else { return nil }
+        let scratch = ModelContext(context.container)
+        scratch.autosaveEnabled = false
+        var descriptor = FetchDescriptor<ClipItem>(predicate: #Predicate { $0.id == id })
+        descriptor.fetchLimit = 1
+        guard let fetched = try? scratch.fetch(descriptor).first else { return nil }
+        return read(fetched)
     }
 
     // MARK: Maintenance
@@ -212,13 +237,16 @@ final class HistoryStore {
         items.insert(item, at: index)
     }
 
-    private func enforceLimit() {
+    /// Returns true when something was evicted (the caller saves).
+    @discardableResult
+    private func enforceLimit() -> Bool {
         let unpinned = items.filter { !$0.isPinned }
-        guard unpinned.count > maxItems else { return }
+        guard unpinned.count > maxItems else { return false }
         let overflow = unpinned[maxItems...]
         let overflowIDs = Set(overflow.map(\.id))
         items.removeAll { overflowIDs.contains($0.id) }
         overflow.forEach(context.delete)
+        return true
     }
 
     private func save() {

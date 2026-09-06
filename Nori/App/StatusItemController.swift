@@ -44,6 +44,8 @@ final class StatusItemController: NSObject {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         let isRightClick = event.type == .rightMouseUp || flags.contains(.control)
         if isRightClick {
+            // The panel floats above menus; it must go before the menu drops down under the icon.
+            coordinator.panelController.close(reason: "status menu")
             statusItem.menu = buildMenu()
             statusItem.button?.performClick(nil)
             statusItem.menu = nil
@@ -107,8 +109,7 @@ final class StatusItemController: NSObject {
         let notSaved = coordinator.settings.notSavedToday()
         if notSaved > 0 {
             menu.addItem(.separator())
-            let infoTitle = notSaved == 1 ? String(localized: "1 item not saved today") : String(localized: "\(notSaved) items not saved today")
-            let info = NSMenuItem(title: infoTitle, action: nil, keyEquivalent: "")
+            let info = NSMenuItem(title: String(inflected: "^[\(notSaved) item](inflect: true) not saved today"), action: nil, keyEquivalent: "")
             info.isEnabled = false
             menu.addItem(info)
         }
@@ -143,21 +144,10 @@ final class StatusItemController: NSObject {
     @objc private func openSettings() { coordinator.openSettings() }
     @objc private func openAbout() { coordinator.openSettings(tab: .about) }
 
+    /// The in-panel confirmation (Esc cancels, ↩ clears, ⌥ includes pinned) never activates Nori,
+    /// so the app the user came from keeps the focus for the next paste.
     @objc private func clearHistory() {
-        let alert = NSAlert()
-        alert.messageText = String(localized: "Clear clipboard history?")
-        alert.informativeText = String(localized: "Pinned clips are kept. Hold ⌥ while clicking Clear to remove pinned clips too.")
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: String(localized: "Clear"))
-        alert.addButton(withTitle: String(localized: "Cancel"))
-        NSApp.activate()
-        if alert.runModal() == .alertFirstButtonReturn {
-            let includePinned = NSEvent.modifierFlags.contains(.option)
-            coordinator.model.clearHistory(includingPinned: includePinned)
-            if coordinator.settings.clearSystemClipboardOnClear {
-                NSPasteboard.general.clearContents()
-                coordinator.monitor.markCurrentAsSeen()
-            }
-        }
+        coordinator.panelController.open(position: .statusItem)
+        coordinator.model.showClearConfirmation()
     }
 }

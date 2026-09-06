@@ -66,10 +66,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     func windowWillClose(_ notification: Notification) {
         model.isWindowVisible = false
-        // Back to a pure menu bar app once the last regular window goes away.
-        if NSApp.windows.filter({ $0.isVisible && $0 !== window && !($0 is FloatingPanel) }).isEmpty {
-            NSApp.setActivationPolicy(.accessory)
-        }
+        model.coordinator.regularWindowWillClose(window)
     }
 }
 

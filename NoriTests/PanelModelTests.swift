@@ -62,6 +62,16 @@ struct PanelModelTests {
         #expect(harness.selectedTitle == "five")
         harness.send(Keys.press(Keys.arrowUp, flags: [.option]))
         #expect(harness.selectedTitle == "one")
+
+        // "Row 1" means the first card: a ghost row above it does not count, and with nothing
+        // selected the key is not ours either.
+        harness.model.addGhost(.concealed(appName: "1Password"), at: .now)
+        harness.model.selectFirst()
+        #expect(harness.model.selectedIndex == 1)
+        #expect(!harness.send(Keys.control("k")))
+        harness.model.query = "zzz-nothing"
+        #expect(harness.model.selectedID == nil)
+        #expect(!harness.send(Keys.control("k")))
     }
 
     @Test func moveSelectionWrapsOnlyWhenAsked() {
@@ -106,6 +116,44 @@ struct PanelModelTests {
         harness.model.hoverSelect(id: last)
         #expect(harness.selectedTitle == "two")
         #expect(!harness.model.hoverSelectsRows)
+    }
+
+    @Test func aCaptureLandingAfterOpenBecomesRowOneUntilTheUserMoves() {
+        // The open-time poll classifies asynchronously: the copy made right before the hotkey
+        // arrives after `panelWillOpen`, and must be what ↩ pastes.
+        let harness = makeHarness()
+        #expect(harness.selectedTitle == "one")
+        harness.store.ingest(TestDrafts.text("six"), now: .now)
+        harness.model.recompute(resetSelection: false)
+        #expect(harness.selectedTitle == "six")
+        harness.send(Keys.press(Keys.returnKey, "\r"))
+        #expect(harness.recorder.lastPerformed?.clip.title == "six")
+
+        // Once the user has moved, later captures leave the selection alone.
+        harness.send(Keys.press(Keys.arrowDown))
+        #expect(harness.selectedTitle == "one")
+        harness.store.ingest(TestDrafts.text("seven"), now: .now)
+        harness.model.recompute(resetSelection: false)
+        #expect(harness.selectedTitle == "one")
+
+        // Selecting another card (a click or hover) counts as moving, too; a new open starts pristine again.
+        harness.open()
+        harness.store.ingest(TestDrafts.text("eight"), now: .now)
+        harness.model.recompute(resetSelection: false)
+        #expect(harness.selectedTitle == "eight")
+        harness.model.select(id: harness.model.rows[2].id, scroll: false)
+        #expect(harness.selectedTitle == "six")
+        harness.store.ingest(TestDrafts.text("nine"), now: .now)
+        harness.model.recompute(resetSelection: false)
+        #expect(harness.selectedTitle == "six")
+
+        // While searching, results are ranked, so a capture never steals the selection.
+        harness.open()
+        harness.model.query = "t"
+        let selected = harness.selectedTitle
+        harness.store.ingest(TestDrafts.text("ten"), now: .now)
+        harness.model.recompute(resetSelection: false)
+        #expect(harness.selectedTitle == selected)
     }
 
     @Test func recomputeKeepsSelectionAcrossHistoryChanges() {
@@ -162,51 +210,92 @@ struct PanelModelTests {
 
     @Test func commandNumbersTargetTheNumberedRow() {
         let harness = makeHarness()
-        #expect(harness.send(Keys.command("3")))
-        var performed = harness.recorder.lastPerformed
+        #expect(harness.send(Keys.number(3)))
+        let performed = harness.recorder.lastPerformed
         #expect(performed?.clip.title == "three")
         #expect(performed?.action == harness.expected(.number(3), [.copyOnly]))
         #expect(performed?.action == harness.expected(.returnKey, []), "⌘ is the trigger, not copy-only")
         #expect(harness.selectedTitle == "three")
 
-        #expect(harness.send(Keys.command("5", extra: [.shift])))
-        performed = harness.recorder.lastPerformed
-        #expect(performed?.clip.title == "five")
-        #expect(performed?.action == harness.expected(.number(5), [.plain, .copyOnly]))
-        #expect(performed?.action.plain == true)
-
-        harness.send(Keys.command("1", extra: [.option]))
+        harness.send(Keys.number(1, flags: [.command, .option]))
         #expect(harness.recorder.lastPerformed?.action.keepOpen == true)
 
         // No ninth row: consumed, nothing performed.
         harness.recorder.performed.removeAll()
-        #expect(harness.send(Keys.command("9")))
+        #expect(harness.send(Keys.number(9)))
         #expect(harness.recorder.performed.isEmpty)
-        // Digits without ⌘ belong to the search field.
+        // Digits without ⌘ belong to the search field, whatever the key code.
+        #expect(!harness.send(Keys.number(2, flags: [])))
         #expect(!harness.send(Keys.press(0, "2")))
+        // ⌃⌘ is not the number row.
+        #expect(!harness.send(Keys.number(2, flags: [.command, .control])))
+        #expect(harness.recorder.performed.isEmpty)
+    }
+
+    @Test func shiftedNumbersPastePlainAndMatchOnKeyCode() {
+        let harness = makeHarness()
+        // A real ⇧⌘5 carries "%" in charactersIgnoringModifiers; the key code still says 5.
+        let event = Keys.number(5, flags: [.command, .shift])
+        #expect(event.charactersIgnoringModifiers == "%")
+        #expect(harness.send(event))
+        let performed = harness.recorder.lastPerformed
+        #expect(performed?.clip.title == "five")
+        #expect(performed?.action == harness.expected(.number(5), [.plain, .copyOnly]))
+        #expect(performed?.action.plain == true)
+
+        // Layouts where the unshifted digit keys type other characters (AZERTY) work the same way.
+        #expect(harness.send(Keys.press(Keys.numberRow[1], "é", flags: [.command])))
+        #expect(harness.recorder.lastPerformed?.clip.title == "two")
+        // The keypad counts as the number row too.
+        #expect(harness.send(Keys.press(85, "3", flags: [.command, .shift])))
+        #expect(harness.recorder.lastPerformed?.clip.title == "three")
+        #expect(harness.recorder.lastPerformed?.action.plain == true)
     }
 
     @Test func numbersSkipGhostRows() {
         let harness = makeHarness(titles: ["b", "a"])
         harness.model.addGhost(.imageTooLarge(bytes: 48 * 1024 * 1024), at: .now)
-        harness.send(Keys.command("1"))
+        harness.send(Keys.number(1))
         #expect(harness.recorder.lastPerformed?.clip.title == "a")
-        harness.send(Keys.command("2"))
+        harness.send(Keys.number(2))
         #expect(harness.recorder.lastPerformed?.clip.title == "b")
     }
 
-    @Test func performWithNoSelectionCopiesTheQuery() {
+    @Test func degradedNumberPasteArmsTheAccessibilityBanner() {
+        let harness = makeHarness()
+        harness.settings.pasteBlockedByAccessibility = false
+        harness.send(Keys.number(2))
+        // ⌘2 is a paste that only degrades to a copy when Nori is not trusted.
+        #expect(harness.settings.pasteBlockedByAccessibility == !harness.model.accessibilityTrusted)
+
+        // ⌘↩ asks for a copy, so nothing was blocked.
+        harness.settings.pasteBlockedByAccessibility = false
+        harness.send(Keys.press(Keys.returnKey, "\r", flags: [.command]))
+        #expect(!harness.settings.pasteBlockedByAccessibility)
+    }
+
+    @Test func performWithNoSelectionPastesTheQuery() {
         let harness = makeHarness()
         harness.model.query = "zzz-nothing-matches"
         #expect(harness.model.isEmpty)
         #expect(harness.model.selectedID == nil)
-        harness.send(Keys.press(Keys.returnKey, "\r"))
-        #expect(harness.recorder.copiedText == ["zzz-nothing-matches"])
+        #expect(harness.send(Keys.press(Keys.returnKey, "\r")))
+        #expect(harness.recorder.typedText.map(\.text) == ["zzz-nothing-matches"])
+        #expect(harness.recorder.typedText.last?.action == harness.expected(.returnKey, []))
         #expect(harness.recorder.performed.isEmpty)
+
+        // The modifier bits apply to the typed text as well.
+        harness.send(Keys.press(Keys.returnKey, "\r", flags: [.command, .option]))
+        #expect(harness.recorder.typedText.last?.action == .copy(plain: false, keepOpen: true))
+        #expect(harness.model.toast == "Copied")
+
+        // ⌘C is an alias of ⌘↩ for a card, never a way to copy the query.
+        harness.send(Keys.command("c"))
+        #expect(harness.recorder.typedText.count == 2)
 
         // An explicit target that does not exist never falls back to the query.
         harness.model.perform(.click, bits: [], on: UUID())
-        #expect(harness.recorder.copiedText.count == 1)
+        #expect(harness.recorder.typedText.count == 2)
     }
 
     @Test func escapeClosesAndCommandWClosesToo() {
@@ -222,10 +311,10 @@ struct PanelModelTests {
     @Test func otherCommandKeysReachTheirClosures() {
         let harness = makeHarness()
         harness.send(Keys.command(","))
-        harness.send(Keys.command("f"))
+        #expect(harness.send(Keys.command("f")))
         harness.send(Keys.command("p", extra: [.shift]))
         #expect(harness.recorder.settingsCount == 1)
-        #expect(harness.recorder.focusSearchCount == 1)
+        #expect(harness.model.focusSearchRequest == 1)
         #expect(harness.recorder.togglePauseCount == 1)
         // ⌘V is swallowed; a bare letter is not ours.
         #expect(harness.send(Keys.command("v")))
@@ -411,6 +500,33 @@ struct PanelModelTests {
         #expect(harness.model.ghosts.isEmpty)
     }
 
+    @Test func ghostsArrivingWhileOpenAreShownOnceOnly() {
+        let harness = makeHarness(titles: ["a"])
+        harness.model.addGhost(.concealed(appName: "1Password"), at: .now)
+        #expect(harness.model.rows.first?.row.isGhost == true)
+        // The close before a keep-open reopen keeps what was on screen a moment ago.
+        harness.model.panelDidClose(willReopen: true)
+        harness.model.panelWillOpen(preserveState: true)
+        #expect(harness.model.ghosts.count == 1)
+        // A real close discards a row that was displayed live.
+        harness.model.panelDidClose()
+        #expect(harness.model.ghosts.isEmpty)
+
+        // Delivered under another filter, the ghost was never displayed and survives the close…
+        harness.open()
+        harness.model.filter = .text
+        harness.model.addGhost(.concealed(appName: "1Password"), at: .now)
+        harness.model.panelDidClose()
+        #expect(harness.model.ghosts.count == 1)
+        // …unless the user switched back to All while it was there.
+        harness.open()
+        harness.model.filter = .text
+        harness.model.addGhost(.concealed(appName: "1Password"), at: .now)
+        harness.model.filter = .all
+        harness.model.panelDidClose()
+        #expect(harness.model.ghosts.isEmpty)
+    }
+
     @Test func clearHistoryToastsTheCount() {
         let harness = makeHarness()
         let pinnedID = harness.model.rows[1].id
@@ -431,15 +547,22 @@ struct PanelModelTests {
 
         harness.send(Keys.press(Keys.delete, flags: [.command, .shift]))
         harness.send(Keys.press(Keys.returnKey, "\r"))
-        #expect(harness.model.toast == "Cleared 4 clips")
+        #expect(harness.model.toast == "Cleared 5 clips", "the masked secret counts too")
         #expect(harness.visibleTitles == ["two"])
         #expect(harness.vault.entries.isEmpty, "clearing history empties the vault too")
         #expect(!harness.model.isClearConfirmationVisible)
+        #expect(harness.recorder.clearSystemClipboardCount == 0)
 
-        harness.send(Keys.press(Keys.delete, flags: [.command, .shift, .option]))
-        #expect(harness.model.toast == "Cleared 1 clips")
+        // ⌘⌥⇧⌫ opens the same sheet with pinned included; only ↩ commits.
+        harness.settings.clearSystemClipboardOnClear = true
+        #expect(harness.send(Keys.press(Keys.delete, flags: [.command, .shift, .option])))
+        #expect(harness.model.isClearConfirmationVisible)
+        #expect(harness.visibleTitles == ["two"])
+        harness.send(Keys.press(Keys.returnKey, "\r", flags: [.option]))
+        #expect(harness.model.toast == "Cleared 1 clip")
         #expect(harness.model.isEmpty)
         #expect(harness.model.historyIsEmpty)
+        #expect(harness.recorder.clearSystemClipboardCount == 1, "the Privacy toggle applies to every Clear History path")
     }
 
     @Test func hintChipsFollowModifiersAndSelection() {
@@ -455,5 +578,20 @@ struct PanelModelTests {
         #expect(harness.recorder.opened.map(\.title) == ["https://nori.example/docs"])
         harness.send(Keys.command("r"))
         #expect(harness.recorder.revealed.isEmpty, "⌘R is files only")
+
+        // No card to act on: only the typed query can be pasted; nothing at all with no query.
+        harness.model.query = "zzz-nothing"
+        #expect(harness.model.hintChips.map(\.key) == ["↩", "⌃U"])
+        #expect(harness.model.hintChips.first?.verb.contains("“zzz-nothing”") == true)
+        harness.model.query = ""
+        harness.model.filter = .image
+        #expect(harness.model.hintChips.isEmpty)
+        harness.model.filter = .all
+
+        // A masked secret cannot be previewed or pinned, so those chips are not printed.
+        harness.vault.add(TestDrafts.sensitive("4111 1111 1111 1111"), now: .now)
+        harness.model.recompute(resetSelection: false)
+        harness.model.select(id: harness.vault.rows[0].id)
+        #expect(harness.model.hintChips.map(\.key) == ["↩", "⇧↩", "⌘⌫"])
     }
 }

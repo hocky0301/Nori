@@ -30,9 +30,13 @@ struct ActionGrammarTests {
 
 @Suite("HintBarModel")
 struct HintBarModelTests {
-    private func chips(_ bits: ActionGrammar.Bits, trusted: Bool = true, cycle: Bool = false, kind: ClipKind? = .text) -> [String] {
+    private func chips(
+        _ bits: ActionGrammar.Bits, trusted: Bool = true, cycle: Bool = false, kind: ClipKind? = .text,
+        hasSelection: Bool = true, sensitive: Bool = false, query: String = ""
+    ) -> [String] {
         HintBarModel.chips(.init(bits: bits, accessibilityTrusted: trusted, cycleMode: cycle,
-                                 hotkeyModifiers: "⇧⌘", selectedKind: kind, hasSelection: true))
+                                 hotkeyModifiers: "⇧⌘", selectedKind: kind, hasSelection: hasSelection,
+                                 isSensitive: sensitive, query: query))
             .map { "\($0.key) \($0.verb)" }
     }
 
@@ -66,5 +70,23 @@ struct HintBarModelTests {
 
     @Test func cycleMode() {
         #expect(chips([.copyOnly, .plain], cycle: true) == ["Release ⇧⌘ to paste", "↑↓ Move", "Esc Cancel"])
+        #expect(chips([.copyOnly, .plain], trusted: false, cycle: true).first == "Release ⇧⌘ to copy")
+    }
+
+    @Test func noSelectionPrintsOnlyWhatWorks() {
+        #expect(chips([], kind: nil, hasSelection: false).isEmpty)
+        #expect(chips([.copyOnly], kind: nil, hasSelection: false).isEmpty)
+        #expect(chips([], kind: nil, hasSelection: false, query: "swift") == ["↩ Paste “swift” as text", "⌃U Clear"])
+        #expect(chips([], trusted: false, kind: nil, hasSelection: false, query: "swift").first == "↩ Copy “swift” as text")
+        #expect(chips([.keepOpen], kind: nil, hasSelection: false, query: "swift") == ["↩ Paste “swift” as text", "⌃U Clear"])
+    }
+
+    @Test func sensitiveRowsHaveNoPreviewPinOrKeepOpen() {
+        #expect(chips([], sensitive: true) == ["↩ Paste", "⇧↩ Plain", "⌘⌫ Delete"])
+        #expect(chips([.copyOnly], sensitive: true) == ["⌘1–9 Paste item", "⌘↩ Copy", "⌘⌫ Delete", "⌘⇧⌫ Clear…"])
+        #expect(chips([.keepOpen], sensitive: true) == ["⌥⌘1–9 Paste item, keep open"])
+        #expect(chips([.keepOpen, .copyOnly], sensitive: true) == ["⌥⌘1–9 Paste item, keep open"])
+        #expect(chips([.plain, .keepOpen], sensitive: true) == ["⌥⇧⌘1–9 Paste plain, keep open (item)"])
+        #expect(chips([.plain], sensitive: true) == chips([.plain]))
     }
 }

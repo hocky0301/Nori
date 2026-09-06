@@ -48,13 +48,15 @@ final class AppCoordinator {
 
         panelController = PanelController(settings: settings, rootView: PanelRootView(model: model))
         model.actions = PanelActions(coordinator: self)
-        panelController.onWillOpen = { [weak self] preserving in
+        panelController.onWillOpen = { [weak self] preserving, viaHotkey in
             guard let self else { return }
-            monitor.poll()  // a copy made a moment before the hotkey must be in the list
-            model.panelWillOpen(preserveState: preserving)
+            // A copy made a moment before the hotkey must be in the list. Classification is
+            // asynchronous, so the model keeps row 1 selected until the user moves the selection.
+            monitor.poll()
+            model.panelWillOpen(preserveState: preserving, viaHotkey: viaHotkey)
             showAccessibilityBannerIfNeeded()
         }
-        panelController.onDidClose = { [weak self] in self?.model.panelDidClose() }
+        panelController.onDidClose = { [weak self] willReopen in self?.model.panelDidClose(willReopen: willReopen) }
         panelController.keyHandler = { [weak self] event in self?.model.handle(event: event) ?? false }
 
         statusItem = StatusItemController(coordinator: self)
@@ -62,7 +64,7 @@ final class AppCoordinator {
 
         KeyboardShortcuts.onKeyDown(for: .togglePanel) { [weak self] in
             guard let self, !suppressesHotkeyToggle else { return }
-            togglePanel()
+            togglePanel(viaHotkey: true)
         }
 
         let expiry = Timer(timeInterval: 3600, repeats: true) { [weak self] _ in
@@ -90,9 +92,16 @@ final class AppCoordinator {
         case let .captured(draft, date):
             let id = history.ingest(draft, now: date)
             if draft.kind == .image, settings.ocrImages {
-                ImageTextRecognizer.recognize(itemID: id, imageData: draft.data(for: PasteboardType.png)) { [weak self] id, text in
-                    self?.history.updateSearchText(id: id, text: text)
-                }
+                ImageTextRecognizer.recognize(
+                    itemID: id,
+                    imageData: draft.data(for: PasteboardType.png),
+                    // A re-copy of an image that was already read, or an item evicted meanwhile, is skipped.
+                    isStillWanted: { [weak self] id in
+                        guard let row = self?.history.row(id: id) else { return false }
+                        return row.copyCount == 1 || row.searchText.isEmpty
+                    },
+                    completion: { [weak self] id, text in self?.history.updateSearchText(id: id, text: text) }
+                )
             }
         case let .sensitive(sensitive, date):
             vault.add(sensitive, now: date)
@@ -113,8 +122,9 @@ final class AppCoordinator {
         }
     }
 
-    func togglePanel() {
-        panelController.toggle()
+    /// `viaHotkey` is true only from the global hotkey handler; it is what arms cycle mode.
+    func togglePanel(viaHotkey: Bool = false) {
+        panelController.toggle(viaHotkey: viaHotkey)
     }
 
     func openSettings(tab: SettingsTab = .general) {
@@ -142,6 +152,19 @@ final class AppCoordinator {
         onboardingWindow?.show(step: step)
     }
 
+    /// Settings and onboarding are Nori's only regular windows. Once the last of them closes,
+    /// go back to being a menu bar app and hand activation to the app the user came from
+    /// (`NSApp.windows` cannot be scanned for this: it also holds the status bar window).
+    func regularWindowWillClose(_ closing: NSWindow?) {
+        let others = [settingsWindow?.window, onboardingWindow?.window]
+            .compactMap { $0 }
+            .filter { $0 !== closing && $0.isVisible }
+        guard others.isEmpty else { return }
+        NSApp.setActivationPolicy(.accessory)
+        // Without this Nori stays the active app with no windows, and the next paste's ⌘V goes nowhere.
+        NSApp.hide(nil)
+    }
+
     func willTerminate() {
         if settings.clearOnQuit {
             history.clear(includingPinned: false)
@@ -163,18 +186,32 @@ final class AppCoordinator {
         }
         guard !contents.isEmpty else { return }
 
-        let keepOpen = action.keepOpen
-        if action.isPaste || !keepOpen {
-            panelController.close(reason: action.isPaste ? "paste" : "copy")
-        }
         ClipboardWriter.write(contents: contents, id: clip.id, sourceBundleID: clip.sourceBundleID, plainTextOnly: action.plain)
         monitor.markCurrentAsSeen()
+        finish(action, reason: "paste")
+    }
 
-        guard action.isPaste else { return }
-        // The panel must have resigned key before ⌘V is posted, or the keystroke lands on Nori itself.
-        DispatchQueue.main.async { [weak self] in
-            Paster.sendPasteKeystroke()
-            if keepOpen {
+    /// No matches for the typed query: ↩ pastes the query itself as plain text. The write carries
+    /// no Nori marker, so the next poll captures it as a brand-new text clip.
+    func pasteTypedText(_ text: String, action: ActionGrammar.Action) {
+        ClipboardWriter.write(string: text)
+        finish(action, reason: "typed text")
+    }
+
+    /// Close (unless copy + keep open) and, for a paste, post ⌘V once the panel is really gone.
+    private func finish(_ action: ActionGrammar.Action, reason: String) {
+        let keepOpen = action.keepOpen
+        guard action.isPaste else {
+            if !keepOpen { panelController.close(reason: "copy") }
+            return
+        }
+        // The panel orders out synchronously here, so it has resigned key before the keystroke is
+        // posted on the next run-loop turn; otherwise ⌘V lands in Nori's own search field.
+        panelController.close(reason: reason, immediately: true, willReopen: keepOpen) { [weak self] in
+            DispatchQueue.main.async {
+                Paster.sendPasteKeystroke()
+                guard keepOpen else { return }
+                // The key-up has been posted; give the target app a moment to take the paste.
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) {
                     self?.panelController.reopenPreservingState()
                 }
@@ -182,10 +219,10 @@ final class AppCoordinator {
         }
     }
 
-    func copyTypedText(_ text: String) {
-        panelController.close(reason: "typed text")
-        ClipboardWriter.write(string: text)
-        // Captured as a brand-new text clip on the next poll.
+    /// "Clearing history also clears the system clipboard".
+    func clearSystemClipboard() {
+        NSPasteboard.general.clearContents()
+        monitor.markCurrentAsSeen()
     }
 
     func enablePasting() {
@@ -275,7 +312,7 @@ extension PanelActions {
     init(coordinator: AppCoordinator) {
         self.init()
         perform = { [unowned coordinator] clip, action in coordinator.perform(action, on: clip) }
-        copyText = { [unowned coordinator] text in coordinator.copyTypedText(text) }
+        pasteTypedText = { [unowned coordinator] text, action in coordinator.pasteTypedText(text, action: action) }
         open = { clip in ItemOpener.open(clip, contents: { AppCoordinatorRegistry.shared?.history.contents(id: clip.id) ?? [] }) }
         reveal = { clip in ItemOpener.reveal(clip) }
         openSettings = { [unowned coordinator] in coordinator.openSettings() }
@@ -286,6 +323,7 @@ extension PanelActions {
         resumeCapture = { [unowned coordinator] in coordinator.resumeCapture() }
         skipNextCopy = { [unowned coordinator] in coordinator.monitor.skipNextChange.toggle() }
         openAbout = { [unowned coordinator] in coordinator.openSettings(tab: .about) }
+        clearSystemClipboard = { [unowned coordinator] in coordinator.clearSystemClipboard() }
         AppCoordinatorRegistry.shared = coordinator
     }
 }

@@ -97,8 +97,6 @@ final class OnboardingWindowController: NSWindowController, NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         model.isVisible = false
         coordinator.suppressesHotkeyToggle = false
-        if NSApp.windows.filter({ $0.isVisible && $0 !== window && !($0 is FloatingPanel) }).isEmpty {
-            NSApp.setActivationPolicy(.accessory)
-        }
+        coordinator.regularWindowWillClose(window)
     }
 }
