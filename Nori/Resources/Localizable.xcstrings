@@ -71,6 +71,16 @@
         }
       }
     },
+    "%@ · ^[%lld clip](inflect: true) · %lld pinned": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$lld 件のクリップ · ピン留め %3$lld 件"
+          }
+        }
+      }
+    },
     "%lld MB": {
       "localizations": {
         "ja": {
@@ -117,6 +127,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%lld 個のファイル"
+          }
+        }
+      }
+    },
+    "%lld items not saved today": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今日は %lld 件が未保存"
           }
         }
       }
@@ -187,6 +207,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "1日"
+          }
+        }
+      }
+    },
+    "1 item not saved today": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今日は 1 件が未保存"
           }
         }
       }
@@ -507,6 +537,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "履歴を消去しますか？"
+          }
+        }
+      }
+    },
+    "Cleared %lld clips": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 件のクリップを消去しました"
           }
         }
       }
@@ -1181,6 +1221,16 @@
         }
       }
     },
+    "Matches content": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "内容に一致"
+          }
+        }
+      }
+    },
     "More": {
       "localizations": {
         "ja": {
@@ -1627,6 +1677,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "ピン留め"
+          }
+        }
+      }
+    },
+    "Pinned clips are kept. Hold ⌥ while clicking Clear to remove pinned clips too.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ピン留めしたクリップは残ります。⌥ を押しながら「消去」をクリックするとピン留めも削除します。"
           }
         }
       }
@@ -2231,6 +2291,56 @@
         }
       }
     },
+    "^[%lld clip](inflect: true) and ^[%lld pinned clip](inflect: true) will be removed. This can't be undone.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld 件のクリップとピン留めした %2$lld 件を削除します。この操作は取り消せません。"
+          }
+        }
+      }
+    },
+    "^[%lld clip](inflect: true) will be removed, including ^[%lld pinned clip](inflect: true). This can't be undone.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ピン留めした %2$lld 件を含む %1$lld 件のクリップを削除します。この操作は取り消せません。"
+          }
+        }
+      }
+    },
+    "^[%lld clip](inflect: true) will be removed. Pinned clips are kept.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 件のクリップを削除します。ピン留めしたクリップは残ります。"
+          }
+        }
+      }
+    },
+    "^[%lld clip](inflect: true) will be removed. This can't be undone.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 件のクリップを削除します。この操作は取り消せません。"
+          }
+        }
+      }
+    },
+    "^[%lld clip](inflect: true) will be removed. ^[%lld pinned clip](inflect: true) will stay.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld 件のクリップを削除します。ピン留めした %2$lld 件は残ります。"
+          }
+        }
+      }
+    },
     "^[%lld item](inflect: true) not saved today": {
       "localizations": {
         "ja": {
@@ -2317,6 +2427,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%lld 回コピー"
+          }
+        }
+      }
+    },
+    "copies “%@” as text": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” をテキストとしてコピー"
           }
         }
       }

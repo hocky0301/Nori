@@ -19,7 +19,7 @@ struct ClipCard: View {
         } label: {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .center, spacing: PanelMetrics.metaGap) {
-                    CardContent(row: row, query: model.query)
+                    CardContent(row: row, titleRanges: entry.titleRanges, query: model.query)
                     CardMeta(model: model, row: row, number: entry.number)
                 }
                 if isExpanded {

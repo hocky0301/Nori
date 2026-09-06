@@ -63,7 +63,8 @@ struct SelectableTextView: NSViewRepresentable {
     }
 
     /// Height the text would need at `width`, so the card grows only as much as necessary.
-    static func measuredHeight(of text: String, monospaced: Bool, width: CGFloat) -> CGFloat {
+    /// String drawing is thread-safe; `TextPreview` calls this off the main thread.
+    nonisolated static func measuredHeight(of text: String, monospaced: Bool, width: CGFloat) -> CGFloat {
         let font: NSFont = monospaced ? .monospacedSystemFont(ofSize: 12, weight: .regular) : .systemFont(ofSize: 13)
         let rect = (text as NSString).boundingRect(
             with: CGSize(width: width, height: .greatestFiniteMagnitude),

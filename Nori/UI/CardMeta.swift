@@ -1,7 +1,10 @@
 import AppKit
 import SwiftUI
 
-/// The fixed 128 pt right column: app icon · relative time · ⌘n keycap · ★.
+/// The right column, 128 pt or as wide as its content needs: app icon · relative time · ⌘n keycap · ★.
+///
+/// An old pinned row shows a full date ("Sep 3 2025", "2025年9月3日") next to a keycap and a star;
+/// that column takes what it needs and the title block, which truncates gracefully, gives way.
 struct CardMeta: View {
     let model: PanelModel
     let row: ClipRow
@@ -31,7 +34,9 @@ struct CardMeta: View {
                     .accessibilityLabel("Pinned")
             }
         }
-        .frame(width: PanelMetrics.metaWidth, alignment: .trailing)
+        .fixedSize(horizontal: true, vertical: false)
+        .frame(minWidth: PanelMetrics.metaWidth, alignment: .trailing)
+        .layoutPriority(1)
     }
 
     @ViewBuilder

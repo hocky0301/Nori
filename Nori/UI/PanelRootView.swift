@@ -42,7 +42,8 @@ struct PanelRootView: View {
                         ClearConfirmation(
                             model: model,
                             count: model.history.count - model.history.pinnedCount,
-                            pinnedCount: model.history.pinnedCount
+                            pinnedCount: model.history.pinnedCount,
+                            sensitiveCount: model.vault.entries.count
                         )
                         .transition(.opacity)
                     }
@@ -74,23 +75,36 @@ struct PanelRootView: View {
             } else {
                 searchFocused = false
                 PreviewImageCache.shared.removeAll()
+                PreviewTextCache.shared.removeAll()
             }
         }
         // Clicking a preview's text view steals first responder; any keyboard navigation hands it back.
         .onChange(of: model.scrollRequest) { focusSearch() }
+        // ⌘F: back to the field with its text selected, so typing replaces the query.
+        .onChange(of: model.focusSearchRequest) { focusSearch(selectAll: true) }
         .onChange(of: model.filter) { focusSearch() }
         .onChange(of: model.isClearConfirmationVisible) { _, visible in
             if !visible { focusSearch() }
         }
     }
 
-    private func focusSearch() {
+    private func focusSearch(selectAll: Bool = false) {
         guard model.isOpen else { return }
         searchFocused = true
         // The panel becomes key right after `isOpen` flips; assert focus again once it has.
         Task { @MainActor in
             searchFocused = true
+            if selectAll { Self.selectAllInFieldEditor() }
         }
+    }
+
+    /// Select the search field's text through the window's field editor (the `NSTextView` that
+    /// edits the focused `TextField`), so ⌘F leaves the query ready to be replaced.
+    private static func selectAllInFieldEditor() {
+        guard let window = NSApp.keyWindow else { return }
+        let editor = (window.firstResponder as? NSTextView) ?? (window.fieldEditor(false, for: nil) as? NSTextView)
+        guard let editor, editor.isFieldEditor else { return }
+        editor.selectAll(nil)
     }
 }
 
@@ -115,7 +129,10 @@ struct ClipList: View {
             EmptyState(kind: .noHistory(hotkey: model.hotkeyDisplay))
         } else if model.isEmpty {
             if model.isSearching {
-                EmptyState(kind: .noMatches(query: model.query.trimmingCharacters(in: .whitespaces)))
+                EmptyState(kind: .noMatches(
+                    query: model.query.trimmingCharacters(in: .whitespaces),
+                    pastes: model.accessibilityTrusted
+                ))
             } else {
                 EmptyState(kind: .filterEmpty(model.filter))
             }

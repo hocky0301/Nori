@@ -12,9 +12,7 @@ enum SettingsSupport {
         formatter.countStyle = .file
         formatter.allowsNonnumericFormatting = false
         let size = formatter.string(fromByteCount: bytes)
-        return count == 1
-            ? String(localized: "\(size) · 1 clip · \(pinned) pinned")
-            : String(localized: "\(size) · \(count) clips · \(pinned) pinned")
+        return String(inflected: "\(size) · ^[\(count) clip](inflect: true) · \(pinned) pinned")
     }
 
     /// Whether `pattern` compiles as an `NSRegularExpression` (the engine `CapturePolicy` uses).
