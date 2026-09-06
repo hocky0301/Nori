@@ -211,6 +211,7 @@ Nori.exe --state default --screenshot shots/default.png
 | `docs/zenn/nori-clipboard-manager.md` | 技術記事の下書き（`published: false`、投稿は所有者が行う） |
 | `windows/README.md` | Windows 版のビルドと検証手順 |
 | `README.md` | 利用者向け |
+| `scripts/make-handoff-zip.sh` | 引き継ぎ一式（`dist/Nori-handoff.zip`）を作り直す。文書やコードを更新したら実行する |
 | `_reference/` | Maccy 2.7.1 の配布物（**git 管理外**なので clone しても存在しない）。`docs/DESIGN.md` は `Maccy/...` のパスを根拠として引用するので、裏を取りたいときは https://github.com/p0deje/Maccy の tag 2.7.1 を取得してここに展開する。無くても実装作業に支障はない |
 
 ---
