@@ -26,6 +26,8 @@ jobs:
     name: Build, screenshot & package
     runs-on: windows-latest
     needs: core-tests
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
